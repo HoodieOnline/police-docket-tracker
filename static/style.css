@@ -249,6 +249,42 @@ h1 {
   color: var(--muted);
 }
 
+.legal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.legal-card h3 {
+  margin: 8px 0;
+}
+
+.compliance-event {
+  padding-bottom: 18px;
+}
+
+.compliance-status {
+  margin-left: 8px;
+}
+
+.compliance-form {
+  display: grid;
+  grid-template-columns: 180px minmax(160px, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 10px;
+}
+
+@media (max-width: 760px) {
+  .legal-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .compliance-form {
+    grid-template-columns: 1fr;
+  }
+}
+
 .case-link {
   color: var(--primary);
   font-weight: 600;

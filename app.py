@@ -33,6 +33,33 @@ CASE_STATUSES = [
     "Escalated",
 ]
 
+LEGAL_REFERENCES = [
+    ("Primary legislation", "Constitution of the Republic of South Africa, 1996 (Act 108 of 1996), section 35", "Fair-trial rights and the rights of arrested, detained and accused persons. Docket handling must protect procedural fairness."),
+    ("Primary legislation", "Criminal Procedure Act 51 of 1977", "Investigation, arrest, bail, search and seizure, statements, and presentation of the docket to court."),
+    ("Primary legislation", "South African Police Service Act 68 of 1995", "SAPS powers and duties relevant to investigation and the investigating officer."),
+    ("Primary legislation", "National Prosecuting Authority Act 32 of 1998", "Investigation guidance, docket circulation between Detective and Prosecutor, and prosecution decisions."),
+    ("Special-protection legislation", "Child Justice Act 75 of 2008", "Additional procedures where a suspect or victim is a child."),
+    ("Special-protection legislation", "Domestic Violence Act 116 of 1998", "Special handling and protection requirements for domestic-violence-related dockets."),
+    ("Special-protection legislation", "Criminal Law (Sexual Offences and Related Matters) Amendment Act 32 of 2007", "Special handling and protection requirements for sexual-offence-related dockets."),
+    ("Information governance", "Promotion of Access to Information Act 2 of 2000 (PAIA)", "Access requests must be assessed against the applicable access-to-information process."),
+    ("Information governance", "Protection of Personal Information Act 4 of 2013 (POPIA)", "Personal information in dockets must be accessed, used, retained and disclosed lawfully."),
+    ("SAPS directive", "National Instruction 3 of 2011", "Opening and registering a docket on CAS and recording the CAS number."),
+    ("SAPS directive", "National Instruction 22 of 1998 / SO (G) 321 — Docket Management", "Investigation diary (SAPS 5) completion and inspection by the CSC Commander, Detective Commander and Prosecutor."),
+    ("SAPS directive", "Standing Order 333 — Chain of custody", "Movement of the docket from CSC to Detective, Commander inspection, NPA and Court must be traceable."),
+]
+
+COMPLIANCE_CHECKS = [
+    ("Constitution / fair-trial safeguards", "Confirm that handling preserves the rights of arrested, detained and accused persons."),
+    ("CAS registration", "Record the CAS number and confirm the docket was opened and registered correctly."),
+    ("Investigation diary / SAPS 5", "Confirm required investigation-diary entries are complete and ready for inspection."),
+    ("Command and prosecutor inspection", "Record inspection or guidance by the CSC Commander, Detective Commander and Prosecutor where applicable."),
+    ("Chain of custody", "Record every docket movement and receiving location from CSC through Detective, command, NPA and Court."),
+    ("Child Justice screening", "Confirm whether child-specific procedures apply to any suspect or victim and record the safeguarding decision."),
+    ("Domestic violence screening", "Confirm whether domestic-violence protections and instructions apply."),
+    ("Sexual offences screening", "Confirm whether sexual-offence protections and instructions apply."),
+    ("PAIA / POPIA access review", "Record the access classification and review any request before disclosure."),
+]
+
 ROLE_PERMISSIONS = {
     "System Administrator": {"view_all", "manage_users", "register", "transfer"},
     "Station Commander": {"view_all", "assign", "approve", "transfer", "escalate"},
@@ -143,6 +170,31 @@ def init_db():
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS legal_references (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            category TEXT NOT NULL,
+            title TEXT UNIQUE NOT NULL,
+            summary TEXT NOT NULL
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS case_compliance (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            case_id TEXT NOT NULL,
+            check_name TEXT NOT NULL,
+            requirement TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'Not reviewed',
+            notes TEXT NOT NULL DEFAULT '',
+            reviewed_by TEXT,
+            reviewed_at TEXT,
+            UNIQUE(case_id, check_name)
+        )
+        """
+    )
     conn.commit()
     conn.close()
 
@@ -247,6 +299,17 @@ def init_seed_data(conn):
         conn.execute(
             "INSERT OR IGNORE INTO case_controls (case_id, next_action, due_at) VALUES (?, ?, ?)",
             (case["case_id"], "Complete the next documented case action", datetime.fromtimestamp(add_days(2), timezone.utc).isoformat(timespec="seconds")),
+        )
+
+    conn.executemany(
+        "INSERT OR IGNORE INTO legal_references (category, title, summary) VALUES (?, ?, ?)",
+        LEGAL_REFERENCES,
+    )
+    all_case_ids = conn.execute("SELECT case_id FROM cases").fetchall()
+    for case in all_case_ids:
+        conn.executemany(
+            "INSERT OR IGNORE INTO case_compliance (case_id, check_name, requirement) VALUES (?, ?, ?)",
+            [(case["case_id"], name, requirement) for name, requirement in COMPLIANCE_CHECKS],
         )
 
     conn.commit()
@@ -541,6 +604,9 @@ def case_detail(case_id):
     control = conn.execute(
         "SELECT * FROM case_controls WHERE case_id = ?", (case_id,)
     ).fetchone()
+    compliance = conn.execute(
+        "SELECT * FROM case_compliance WHERE case_id = ? ORDER BY id", (case_id,)
+    ).fetchall()
     conn.close()
     can_update = has_permission("update_case") or has_permission("approve") or has_permission("assign")
     return render_template(
@@ -560,7 +626,53 @@ def case_detail(case_id):
         can_update=can_update,
         can_transfer=has_permission("transfer"),
         can_escalate=has_permission("escalate"),
+        compliance=compliance,
+        can_review_compliance=has_permission("update_case") or has_permission("approve") or has_permission("assign"),
     )
+
+
+@app.route("/legal")
+@require_login
+def legal_references():
+    conn = get_db()
+    references = conn.execute(
+        "SELECT * FROM legal_references ORDER BY CASE category WHEN 'Primary legislation' THEN 1 WHEN 'Special-protection legislation' THEN 2 WHEN 'Information governance' THEN 3 ELSE 4 END, title"
+    ).fetchall()
+    conn.close()
+    return render_template(
+        "legal.html",
+        current_page="legal",
+        user_name=session.get("user", "Officer"),
+        user_role=session.get("role", "Station Commander"),
+        user_station=session.get("station", "Johannesburg Central"),
+        integrity_score=72,
+        references=references,
+    )
+
+
+@app.route("/cases/<case_id>/compliance", methods=["POST"])
+@require_login
+def update_compliance(case_id):
+    if not (has_permission("update_case") or has_permission("approve") or has_permission("assign")):
+        return render_template("forbidden.html", required_roles="Detective, Supervisor, or Station Commander"), 403
+    check_name = request.form.get("check_name", "").strip()
+    status = request.form.get("status", "Not reviewed").strip()
+    notes = request.form.get("notes", "").strip()
+    if status not in {"Not reviewed", "In progress", "Complete", "Not applicable"}:
+        return redirect(url_for("case_detail", case_id=case_id))
+    conn = get_db()
+    if not conn.execute("SELECT 1 FROM cases WHERE case_id = ?", (case_id,)).fetchone():
+        conn.close()
+        return "Case not found", 404
+    result = conn.execute(
+        "UPDATE case_compliance SET status = ?, notes = ?, reviewed_by = ?, reviewed_at = ? WHERE case_id = ? AND check_name = ?",
+        (status, notes, session["user"], now_iso(), case_id, check_name),
+    )
+    if result.rowcount:
+        add_audit_event(conn, case_id, "Compliance checkpoint updated", f"{check_name}: {status}. {notes}".strip())
+        conn.commit()
+    conn.close()
+    return redirect(url_for("case_detail", case_id=case_id))
 
 
 @app.route("/cases/<case_id>/status", methods=["POST"])

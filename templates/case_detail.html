@@ -85,6 +85,33 @@
     </form>
   </div>
 
+  <div class="mini-panel">
+    <h3>Legal and directive checkpoints</h3>
+    <p class="muted">Operational checklist only. Confirm current SAPS, NPA and legal requirements with the responsible authority before relying on a checkpoint.</p>
+    <div class="timeline compact-timeline">
+      {% for item in compliance %}
+      <div class="event compliance-event">
+        <strong>{{ item.check_name }}</strong>
+        <span class="status-pill compliance-status">{{ item.status }}</span>
+        <p class="muted">{{ item.requirement }}</p>
+        {% if item.reviewed_by %}<small class="meta">Reviewed by {{ item.reviewed_by }} at {{ item.reviewed_at[:16] }}{% if item.notes %} · {{ item.notes }}{% endif %}</small>{% endif %}
+        {% if can_review_compliance %}
+        <form method="post" action="{{ url_for('update_compliance', case_id=case.case_id) }}" class="compliance-form">
+          <input type="hidden" name="check_name" value="{{ item.check_name }}">
+          <select class="select" name="status">
+            {% for option in ['Not reviewed', 'In progress', 'Complete', 'Not applicable'] %}
+            <option value="{{ option }}" {% if option == item.status %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+          <input class="input" name="notes" value="{{ item.notes }}" placeholder="Record evidence or reason">
+          <button class="button" type="submit">Save checkpoint</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
   <div class="grid-two">
     <div class="mini-panel">
       <h3>Docket custody</h3>

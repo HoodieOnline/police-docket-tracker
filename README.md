@@ -2,6 +2,8 @@
 
 A Flask-based police case and docket accountability tracker with role-based dashboards, case lifecycle controls, custody transfers, escalation guardrails, and append-only audit history.
 
+The app also includes a legal and directive reference page plus per-case compliance checkpoints covering fair-trial safeguards, CAS registration, SAPS 5 / investigation-diary review, prosecutor and command inspection, chain of custody, child and special-offence screening, and PAIA/POPIA access review. These are operational prompts only and must be checked against current official legislation, SAPS instructions, NPA guidance and authorised legal advice.
+
 ## Run locally
 
 ```powershell

@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+
+{% block title %}Docket Tracker SA • Legal & Directives{% endblock %}
+
+{% block content %}
+  <header class="hero">
+    <div class="eyebrow">Governance reference</div>
+    <h2>Legal &amp; SAPS directives</h2>
+    <p>Reference points used to structure docket controls, access reviews, inspections and chain-of-custody records.</p>
+  </header>
+
+  <section class="guardrail-note">
+    <strong>Operational reference — verify before relying on it</strong>
+    <span>This page is not legal advice and does not replace current legislation, SAPS national instructions, standing orders, NPA guidance, or advice from an authorised legal/prosecutorial authority.</span>
+  </section>
+
+  <section class="legal-grid">
+    {% for reference in references %}
+    <article class="mini-panel legal-card">
+      <div class="eyebrow">{{ reference.category }}</div>
+      <h3>{{ reference.title }}</h3>
+      <p class="muted">{{ reference.summary }}</p>
+    </article>
+    {% endfor %}
+  </section>
+{% endblock %}
