@@ -1,17 +1,18 @@
 :root {
-  --bg: #061823;
-  --bg-2: #0b1f30;
+  --bg: #071722;
+  --bg-2: #10283a;
   --panel: rgba(17, 30, 46, 0.96);
   --panel-soft: rgba(20, 38, 57, 0.9);
-  --primary: #4ec3ff;
-  --primary-soft: rgba(78, 195, 255, 0.12);
+  --primary: #4aa9d8;
+  --primary-soft: rgba(74, 169, 216, 0.14);
   --success: #2dd4bf;
-  --warning: #fbbf24;
+  --warning: #d7ad45;
   --danger: #fb7185;
   --purple: #a78bfa;
   --text: #ebf5ff;
   --muted: #a8bfd5;
-  --line: rgba(148, 163, 184, 0.18);
+  --gold: #c8a24b;
+  --line: rgba(173, 190, 204, 0.2);
   --shadow: rgba(0, 0, 0, 0.35);
 }
 
@@ -50,14 +51,33 @@ button, input, select { font: inherit; }
 }
 
 .brand-mark {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
+  width: 44px;
+  height: 50px;
   display: grid;
   place-items: center;
-  font-weight: 700;
-  color: #051621;
-  background: linear-gradient(135deg, var(--primary), var(--purple));
+  flex: 0 0 auto;
+}
+
+.brand-mark svg {
+  width: 100%;
+  height: 100%;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.28));
+}
+
+.brand-mark svg path:first-child {
+  fill: #173c59;
+  stroke: var(--gold);
+  stroke-width: 2;
+}
+
+.brand-mark .crest-inner {
+  fill: none;
+  stroke: #e9f2f7;
+  stroke-width: 1.4;
+}
+
+.brand-mark .crest-star {
+  fill: var(--gold);
 }
 
 .brand h2 {
@@ -67,6 +87,15 @@ button, input, select { font: inherit; }
 
 .brand small {
   color: var(--muted);
+}
+
+.prototype-notice {
+  margin: -8px 0 20px;
+  padding: 8px 10px;
+  border-left: 2px solid var(--gold);
+  color: #d9c895;
+  font-size: 0.68rem;
+  line-height: 1.4;
 }
 
 .nav-group {
@@ -97,7 +126,7 @@ button, input, select { font: inherit; }
 .nav-item:hover,
 .nav-item.active {
   background: var(--primary-soft);
-  border-color: rgba(78, 195, 255, 0.3);
+  border-color: rgba(74, 169, 216, 0.35);
 }
 
 .role-chip {
@@ -157,8 +186,8 @@ button, input, select { font: inherit; }
 .welcome-badge {
   padding: 8px 12px;
   border-radius: 999px;
-  background: rgba(78, 195, 255, 0.1);
-  border: 1px solid rgba(78, 195, 255, 0.22);
+  background: rgba(74, 169, 216, 0.1);
+  border: 1px solid rgba(74, 169, 216, 0.24);
   color: var(--text);
 }
 
