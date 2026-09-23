@@ -152,6 +152,7 @@ button, input, select { font: inherit; }
 
 .main {
   padding: 26px 28px 36px;
+  border-bottom: 2px solid rgba(200, 162, 75, 0.7);
 }
 
 .topbar {
