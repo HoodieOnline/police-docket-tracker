@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Docket Tracker SA</title>
+    <style>
+      :root {
+        --bg: #061823;
+        --bg-2: #0b1f30;
+        --panel: rgba(17, 30, 46, 0.96);
+        --panel-soft: rgba(20, 38, 57, 0.9);
+        --primary: #4ec3ff;
+        --primary-soft: rgba(78, 195, 255, 0.12);
+        --success: #2dd4bf;
+        --warning: #fbbf24;
+        --danger: #fb7185;
+        --purple: #a78bfa;
+        --text: #ebf5ff;
+        --muted: #a8bfd5;
+        --line: rgba(148, 163, 184, 0.18);
+      }
+
+      * { box-sizing: border-box; }
+
+      html, body {
+        margin: 0;
+        min-height: 100%;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        background: linear-gradient(180deg, var(--bg), var(--bg-2));
+        color: var(--text);
+      }
+
+      body {
+        min-height: 100vh;
+      }
+
+      button, input, select {
+        font: inherit;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 260px 1fr;
+        min-height: 100vh;
+      }
+
+      .sidebar {
+        background: rgba(6, 18, 31, 0.96);
+        border-right: 1px solid var(--line);
+        padding: 22px 18px;
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 20px;
+      }
+
+      .brand-mark {
+        width: 38px;
+        height: 38px;
+        border-radius: 12px;
+        display: grid;
+        place-items: center;
+        font-weight: 700;
+        color: #051621;
+        background: linear-gradient(135deg, var(--primary), var(--purple));
+      }
+
+      .brand h2 {
+        margin: 0;
+        font-size: 1.14rem;
+      }
+
+      .brand small {
+        color: var(--muted);
+      }
+
+      .nav-group {
+        margin-top: 18px;
+      }
+
+      .nav-title {
+        margin: 0 0 8px;
+        color: var(--muted);
+        font-size: 0.7rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      .nav-item {
+        display: block;
+        width: 100%;
+        text-align: left;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--text);
+        padding: 10px 12px;
+        margin-bottom: 6px;
+        cursor: pointer;
+        transition: 0.2s ease;
+      }
+
+      .nav-item:hover,
+      .nav-item.active {
+        background: var(--primary-soft);
+        border-color: rgba(78, 195, 255, 0.3);
+      }
+
+      .status-box {
+        margin-top: 18px;
+        padding: 14px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(19, 35, 53, 0.9);
+      }
+
+      .status-box .label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .status-box .value {
+        margin-top: 6px;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .main {
+        padding: 26px 28px 36px;
+      }
+
+      .topbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .eyebrow {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+
+      h1 {
+        margin: 8px 0 0;
+        font-size: clamp(2rem, 2.5vw, 2.8rem);
+      }
+
+      .badge {
+        padding: 8px 12px;
+        border-radius: 999px;
+        border: 1px solid rgba(45, 212, 191, 0.35);
+        background: rgba(45, 212, 191, 0.12);
+        color: #a7f4e7;
+        font-weight: 600;
+      }
+
+      .hero {
+        background: linear-gradient(135deg, rgba(78, 195, 255, 0.12), rgba(167, 139, 250, 0.16));
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 18px 22px;
+        margin-bottom: 20px;
+      }
+
+      .hero p {
+        margin: 12px 0 0;
+        color: var(--muted);
+        max-width: 900px;
+        line-height: 1.6;
+      }
+
+      .page {
+        display: none;
+      }
+
+      .page.active {
+        display: block;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(170px, 1fr));
+        gap: 16px;
+        margin-bottom: 18px;
+      }
+
+      .stat-card {
+        min-height: 120px;
+        padding: 16px 18px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(17, 31, 46, 0.96);
+      }
+
+      .stat-card .label {
+        color: var(--muted);
+        font-size: 0.74rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .stat-card .value {
+        margin-top: 8px;
+        font-size: clamp(1.8rem, 2vw, 2.4rem);
+        font-weight: 700;
+      }
+
+      .stat-card .trend {
+        margin-top: 8px;
+        color: var(--success);
+        font-size: 0.75rem;
+      }
+
+      .section-header {
+        margin: 0 0 12px;
+        font-size: 1.08rem;
+        font-weight: 700;
+      }
+
+      .content-grid {
+        display: grid;
+        grid-template-columns: 1.45fr 1fr;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .panel {
+        padding: 18px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(17, 31, 46, 0.96);
+      }
+
+      .bar-chart {
+        display: flex;
+        align-items: end;
+        gap: 14px;
+        height: 220px;
+        padding-top: 10px;
+      }
+
+      .bar-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+        align-items: center;
+        gap: 8px;
+        height: 100%;
+      }
+
+      .bar-stack {
+        width: 100%;
+        display: flex;
+        justify-content: center;
+      }
+
+      .bar {
+        width: 46px;
+        min-height: 14px;
+        border-radius: 12px 12px 0 0;
+        background: linear-gradient(180deg, var(--primary), rgba(78, 195, 255, 0.65));
+      }
+
+      .bar-label {
+        color: var(--muted);
+        font-size: 0.7rem;
+      }
+
+      .timeline {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .event {
+        padding: 12px 14px;
+        border-left: 3px solid var(--primary);
+        border-radius: 10px;
+        background: rgba(14, 31, 46, 0.9);
+      }
+
+      .event strong {
+        margin-right: 8px;
+      }
+
+      .event .meta {
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+      }
+
+      .toolbar-left,
+      .toolbar-right {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .input,
+      .select,
+      .button,
+      .primary-btn {
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: rgba(12, 29, 43, 0.9);
+        color: var(--text);
+        padding: 10px 12px;
+      }
+
+      .input {
+        min-width: 220px;
+      }
+
+      .primary-btn {
+        background: linear-gradient(135deg, rgba(78,195,255,0.2), rgba(167,139,250,0.2));
+        border-color: rgba(78, 195, 255, 0.35);
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        text-align: left;
+        padding: 12px 10px;
+        border-bottom: 1px solid var(--line);
+      }
+
+      th {
+        color: var(--muted);
+        font-size: 0.72rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      tbody tr:hover {
+        background: rgba(78, 195, 255, 0.04);
+      }
+
+      .status-pill {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 600;
+      }
+
+      .progress-band {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .progress-bg {
+        position: relative;
+        flex: 1;
+        height: 10px;
+        border-radius: 999px;
+        background: rgba(255,255,255,0.08);
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 72%;
+        border-radius: inherit;
+        background: linear-gradient(90deg, var(--primary), var(--success));
+      }
+
+      .alert-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+      }
+
+      .alert-list li {
+        margin-bottom: 10px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: rgba(12, 29, 43, 0.9);
+        color: var(--muted);
+      }
+
+      .grid-two {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(240px, 1fr));
+        gap: 18px;
+      }
+
+      .mini-panel {
+        padding: 18px;
+        background: rgba(17, 31, 46, 0.96);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+      }
+
+      .mini-panel h3 {
+        margin: 0 0 12px;
+        font-size: 1rem;
+      }
+
+      .report-bars {
+        display: flex;
+        align-items: end;
+        gap: 14px;
+        height: 170px;
+        margin-top: 12px;
+      }
+
+      .report-bar-col {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: end;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .report-bar {
+        width: 42px;
+        border-radius: 12px 12px 0 0;
+        background: linear-gradient(180deg, var(--purple), rgba(167,139,250,0.7));
+      }
+
+      .report-bar:nth-child(2n) {
+        background: linear-gradient(180deg, var(--primary), rgba(78,195,255,0.72));
+      }
+
+      .key-metrics {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(140px, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .metric-box {
+        background: rgba(12, 29, 43, 0.9);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 12px 14px;
+      }
+
+      .metric-box .metric-label {
+        color: var(--muted);
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .metric-box .metric-value {
+        margin-top: 8px;
+        font-size: 1.5rem;
+        font-weight: 700;
+      }
+
+      .modal {
+        position: fixed;
+        inset: 0;
+        background: rgba(3, 8, 14, 0.68);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 50;
+      }
+
+      .modal.open {
+        display: flex;
+      }
+
+      .modal-card {
+        width: min(560px, calc(100% - 24px));
+        padding: 22px;
+        border-radius: 18px;
+        background: #0d1d2c;
+        border: 1px solid var(--line);
+        box-shadow: 0 20px 50px rgba(0,0,0,0.4);
+      }
+
+      .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+
+      .close-btn {
+        border: none;
+        background: transparent;
+        color: var(--text);
+        font-size: 1.5rem;
+        cursor: pointer;
+      }
+
+      form {
+        display: grid;
+        gap: 12px;
+      }
+
+      .field-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(170px, 1fr));
+        gap: 12px;
+      }
+
+      label {
+        display: grid;
+        gap: 6px;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 8px;
+      }
+
+      @media (max-width: 980px) {
+        .app-shell { grid-template-columns: 1fr; }
+        .sidebar { border-right: none; border-bottom: 1px solid var(--line); }
+        .stats-grid { grid-template-columns: repeat(2, minmax(170px, 1fr)); }
+        .content-grid, .grid-two { grid-template-columns: 1fr; }
+      }
+
+      @media (max-width: 620px) {
+        .main { padding: 18px 16px 32px; }
+        .stats-grid, .key-metrics, .field-row { grid-template-columns: 1fr; }
+        .topbar { display: block; }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">DT</div>
+          <div>
+            <h2>Docket Tracker</h2>
+            <small>SA · public service</small>
+          </div>
+        </div>
+
+        <div class="nav-group">
+          <p class="nav-title">Overview</p>
+          <button class="nav-item active" data-page="dashboard">Dashboard</button>
+          <button class="nav-item" data-page="registry">Case Registry</button>
+          <button class="nav-item" data-page="movement">Docket Flow</button>
+          <button class="nav-item" data-page="reports">Reports</button>
+        </div>
+
+        <div class="nav-group">
+          <p class="nav-title">Roles</p>
+          <button class="nav-item" data-page="dashboard">Station Commander</button>
+          <button class="nav-item" data-page="dashboard">Captain</button>
+          <button class="nav-item" data-page="dashboard">Detective</button>
+          <button class="nav-item" data-page="dashboard">Complainant</button>
+        </div>
+
+        <div class="status-box">
+          <div class="label">Integrity score</div>
+          <div class="value">72%</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <div class="eyebrow">Digital Police Case Registration</div>
+            <h1>Docket Tracker SA</h1>
+          </div>
+          <div class="badge">Chain of custody secure</div>
+        </div>
+
+        <section id="dashboard" class="page active">
+          <header class="hero">
+            <div class="eyebrow">SAPS Operations</div>
+            <p>
+              A digital case-registration and docket-tracking system built to reduce unlawful refusals,
+              prevent missing dockets, and preserve a tamper-resistant audit trail for every investigation.
+            </p>
+          </header>
+
+          <div class="stats-grid">
+            <article class="stat-card">
+              <div class="label">Open cases</div>
+              <div class="value">21</div>
+              <div class="trend">+7% vs last week</div>
+            </article>
+            <article class="stat-card">
+              <div class="label">Requiring action</div>
+              <div class="value">8</div>
+              <div class="trend">3 escalations</div>
+            </article>
+            <article class="stat-card">
+              <div class="label">Avg. days open</div>
+              <div class="value">12.4</div>
+              <div class="trend">-2.1 days</div>
+            </article>
+            <article class="stat-card">
+              <div class="label">Finalized</div>
+              <div class="value">6</div>
+              <div class="trend">Completed</div>
+            </article>
+          </div>
+
+          <div class="content-grid">
+            <div class="panel">
+              <div class="section-header">Case overview</div>
+              <div class="bar-chart" aria-label="Case status chart">
+                <div class="bar-col">
+                  <div class="bar-stack"><div class="bar" style="height: 52%;"></div></div>
+                  <div class="bar-label">Registered</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack"><div class="bar" style="height: 82%; background: linear-gradient(180deg, var(--purple), rgba(167, 139, 250, 0.7));"></div></div>
+                  <div class="bar-label">In progress</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack"><div class="bar" style="height: 64%; background: linear-gradient(180deg, var(--warning), rgba(251,191,36,0.68));"></div></div>
+                  <div class="bar-label">Awaiting court</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack"><div class="bar" style="height: 38%; background: linear-gradient(180deg, var(--success), rgba(45,212,191,0.72));"></div></div>
+                  <div class="bar-label">Finalized</div>
+                </div>
+                <div class="bar-col">
+                  <div class="bar-stack"><div class="bar" style="height: 44%; background: linear-gradient(180deg, var(--danger), rgba(251,113,133,0.76));"></div></div>
+                  <div class="bar-label">Escalated</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="section-header">Recent activity</div>
+              <div class="timeline">
+                <div class="event"><strong>06:30</strong> Case registered by admin clerk <span class="meta">DTS-2026-0482</span></div>
+                <div class="event"><strong>08:15</strong> Docket transferred to detective unit <span class="meta">DTS-2026-0482</span></div>
+                <div class="event"><strong>12:40</strong> Evidence uploaded and linked <span class="meta">DTS-2026-0482</span></div>
+                <div class="event"><strong>15:10</strong> Supervisor review requested <span class="meta">DTS-2026-0482</span></div>
+                <div class="event"><strong>17:05</strong> Escalation for overdue review <span class="meta">DTS-2026-0501</span></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section id="registry" class="page">
+          <div class="toolbar">
+            <div class="toolbar-left">
+              <input id="searchInput" class="input" type="text" placeholder="Search case, complainant, station..." />
+              <select id="statusFilter" class="select">
+                <option value="All">All statuses</option>
+                <option value="Registered">Registered</option>
+                <option value="Under Investigation">Under Investigation</option>
+                <option value="Awaiting Court">Awaiting Court</option>
+                <option value="Escalated">Escalated</option>
+                <option value="Finalized">Finalized</option>
+              </select>
+            </div>
+            <div class="toolbar-right">
+              <button class="primary-btn" id="newCaseBtn">+ New case</button>
+            </div>
+          </div>
+
+          <div class="panel">
+            <table>
+              <thead>
+                <tr>
+                  <th>Case ID</th>
+                  <th>Complainant</th>
+                  <th>Station</th>
+                  <th>Assigned To</th>
+                  <th>Status</th>
+                  <th>Days open</th>
+                  <th>Progress</th>
+                </tr>
+              </thead>
+              <tbody id="caseTableBody"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="movement" class="page">
+          <div class="grid-two">
+            <div class="mini-panel">
+              <h3>Docket custody chain</h3>
+              <div class="timeline">
+                <div class="event"><strong>09:00</strong> Registered at front desk <span class="meta">Case desk</span></div>
+                <div class="event"><strong>10:30</strong> Assigned to Detective Ndlovu <span class="meta">Johannesburg Central</span></div>
+                <div class="event"><strong>13:10</strong> Evidence uploaded <span class="meta">Case file</span></div>
+                <div class="event"><strong>16:45</strong> Captain review pending <span class="meta">Supervisor</span></div>
+              </div>
+            </div>
+
+            <div class="mini-panel">
+              <h3>Movement log</h3>
+              <ul class="alert-list">
+                <li>Docket moved from admin desk to investigator unit.</li>
+                <li>Evidence package verified and sealed.</li>
+                <li>Supervisor flagged overdue sign-off.</li>
+                <li>Audit trail preserved without deletions.</li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section id="reports" class="page">
+          <div class="grid-two">
+            <div class="mini-panel">
+              <h3>Department performance</h3>
+              <div class="report-bars">
+                <div class="report-bar-col"><div class="report-bar" style="height: 58%;"></div><div class="bar-label">Jan</div></div>
+                <div class="report-bar-col"><div class="report-bar" style="height: 68%;"></div><div class="bar-label">Feb</div></div>
+                <div class="report-bar-col"><div class="report-bar" style="height: 75%;"></div><div class="bar-label">Mar</div></div>
+                <div class="report-bar-col"><div class="report-bar" style="height: 88%;"></div><div class="bar-label">Apr</div></div>
+                <div class="report-bar-col"><div class="report-bar" style="height: 72%;"></div><div class="bar-label">May</div></div>
+              </div>
+            </div>
+
+            <div class="mini-panel">
+              <h3>Key metrics</h3>
+              <div class="key-metrics">
+                <div class="metric-box">
+                  <div class="metric-label">Resolved</div>
+                  <div class="metric-value">314</div>
+                </div>
+                <div class="metric-box">
+                  <div class="metric-label">Escalated</div>
+                  <div class="metric-value">27</div>
+                </div>
+                <div class="metric-box">
+                  <div class="metric-label">Audit score</div>
+                  <div class="metric-value">94%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="caseModal" class="modal" aria-modal="true" role="dialog">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3 style="margin:0;">Register new case</h3>
+          <button class="close-btn" id="closeModalBtn" aria-label="Close">×</button>
+        </div>
+
+        <form id="caseForm">
+          <div class="field-row">
+            <label>
+              Case ID
+              <input class="input" type="text" name="caseId" placeholder="DTS-2026-0551" required />
+            </label>
+            <label>
+              Complainant
+              <input class="input" type="text" name="complainant" placeholder="S. Nkosi" required />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label>
+              Station
+              <input class="input" type="text" name="station" placeholder="Johannesburg Central" required />
+            </label>
+            <label>
+              Assigned To
+              <input class="input" type="text" name="assignedTo" placeholder="Detective K. Ndlovu" required />
+            </label>
+          </div>
+
+          <div class="field-row">
+            <label>
+              Status
+              <select class="select" name="status">
+                <option>Registered</option>
+                <option>Under Investigation</option>
+                <option>Awaiting Court</option>
+                <option>Escalated</option>
+                <option>Finalized</option>
+              </select>
+            </label>
+            <label>
+              Days open
+              <input class="input" type="number" name="daysOpen" value="2" min="0" required />
+            </label>
+          </div>
+
+          <div class="modal-actions">
+            <button type="button" class="button" id="cancelBtn">Cancel</button>
+            <button type="submit" class="primary-btn">Save case</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <script>
+      const caseData = [
+        {
+          caseId: 'DTS-2026-0482',
+          complainant: 'N. Mokoena',
+          station: 'Johannesburg Central',
+          assignedTo: 'Detective K. Ndlovu',
+          status: 'Under Investigation',
+          daysOpen: 11,
+          progress: 68
+        },
+        {
+          caseId: 'DTS-2026-0471',
+          complainant: 'P. Khumalo',
+          station: 'Durban South',
+          assignedTo: 'Detective S. Padayachee',
+          status: 'Registered',
+          daysOpen: 4,
+          progress: 32
+        },
+        {
+          caseId: 'DTS-2026-0458',
+          complainant: 'R. Sibanda',
+          station: 'Cape Town',
+          assignedTo: 'Captain M. Mokoena',
+          status: 'Awaiting Court',
+          daysOpen: 21,
+          progress: 86
+        },
+        {
+          caseId: 'DTS-2026-0432',
+          complainant: 'L. Dlamini',
+          station: 'Pretoria',
+          assignedTo: 'Detective Z. Khuzwayo',
+          status: 'Finalized',
+          daysOpen: 33,
+          progress: 100
+        },
+        {
+          caseId: 'DTS-2026-0501',
+          complainant: 'A. Mngadi',
+          station: 'Gqeberha',
+          assignedTo: 'Docket Unit',
+          status: 'Escalated',
+          daysOpen: 8,
+          progress: 54
+        }
+      ];
+
+      const statusPalette = {
+        Registered: 'background: rgba(78,195,255,0.12); color: #dff4ff;',
+        'Under Investigation': 'background: rgba(167,139,250,0.12); color: #e3d9ff;',
+        'Awaiting Court': 'background: rgba(251,191,36,0.12); color: #fde7a7;',
+        Escalated: 'background: rgba(251,113,133,0.12); color: #ffbfd0;',
+        Finalized: 'background: rgba(45,212,191,0.12); color: #baf7ec;'
+      };
+
+      function renderCaseTable() {
+        const search = document.getElementById('searchInput').value.trim().toLowerCase();
+        const status = document.getElementById('statusFilter').value;
+        const rows = caseData.filter(item => {
+          const matchesSearch = !search || [item.caseId, item.complainant, item.station, item.assignedTo].join(' ').toLowerCase().includes(search);
+          const matchesStatus = status === 'All' || item.status === status;
+          return matchesSearch && matchesStatus;
+        });
+
+        const tbody = document.getElementById('caseTableBody');
+        tbody.innerHTML = rows.map(item => `
+          <tr>
+            <td>${item.caseId}</td>
+            <td>${item.complainant}</td>
+            <td>${item.station}</td>
+            <td>${item.assignedTo}</td>
+            <td><span class="status-pill" style="${statusPalette[item.status]}">${item.status}</span></td>
+            <td>${item.daysOpen}</td>
+            <td>
+              <div class="progress-band">
+                <div class="progress-bg"><div class="progress-fill" style="width: ${item.progress}%;"></div></div>
+                <span>${item.progress}%</span>
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      document.getElementById('searchInput').addEventListener('input', renderCaseTable);
+      document.getElementById('statusFilter').addEventListener('change', renderCaseTable);
+
+      document.querySelectorAll('.nav-item').forEach(button => {
+        button.addEventListener('click', () => {
+          document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+          button.classList.add('active');
+
+          const pageId = button.dataset.page;
+          document.querySelectorAll('.page').forEach(page => page.classList.toggle('active', page.id === pageId));
+        });
+      });
+
+      const modal = document.getElementById('caseModal');
+      const newCaseBtn = document.getElementById('newCaseBtn');
+      const closeModalBtn = document.getElementById('closeModalBtn');
+      const cancelBtn = document.getElementById('cancelBtn');
+
+      function openModal() { modal.classList.add('open'); }
+      function closeModal() { modal.classList.remove('open'); }
+
+      newCaseBtn.addEventListener('click', openModal);
+      closeModalBtn.addEventListener('click', closeModal);
+      cancelBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', (event) => {
+        if (event.target === modal) closeModal();
+      });
+
+      document.getElementById('caseForm').addEventListener('submit', event => {
+        event.preventDefault();
+        const form = new FormData(event.target);
+        const newCase = {
+          caseId: form.get('caseId').toString().trim(),
+          complainant: form.get('complainant').toString().trim(),
+          station: form.get('station').toString().trim(),
+          assignedTo: form.get('assignedTo').toString().trim(),
+          status: form.get('status').toString(),
+          daysOpen: Number(form.get('daysOpen')) || 0,
+          progress: Math.min(100, Math.max(10, Number(form.get('daysOpen')) * 4 + 10))
+        };
+
+        caseData.unshift(newCase);
+        renderCaseTable();
+        event.target.reset();
+        closeModal();
+      });
+
+      renderCaseTable();
+    </script>
+  </body>
+</html>

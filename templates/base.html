@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{% block title %}Docket Tracker SA{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand">
+          <div class="brand-mark">DT</div>
+          <div>
+            <h2>Docket Tracker</h2>
+            <small>SA · public service</small>
+          </div>
+        </div>
+
+        <nav class="nav-group">
+          <p class="nav-title">Overview</p>
+          <a class="nav-item {% if current_page == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">Dashboard</a>
+          <a class="nav-item {% if current_page == 'cases' %}active{% endif %}" href="{{ url_for('cases') }}">Case Registry</a>
+          <a class="nav-item {% if current_page == 'dockets' %}active{% endif %}" href="{{ url_for('dockets') }}">Docket Flow</a>
+          <a class="nav-item {% if current_page == 'reports' %}active{% endif %}" href="{{ url_for('reports') }}">Reports</a>
+        </nav>
+
+        <div class="nav-group">
+          <p class="nav-title">Roles</p>
+          <div class="role-chip">{{ user_role or 'Station Commander' }}</div>
+          <div class="role-chip muted">{{ user_station or 'Johannesburg Central' }}</div>
+        </div>
+
+        <div class="status-box">
+          <div class="label">Integrity score</div>
+          <div class="value">{{ integrity_score }}%</div>
+        </div>
+      </aside>
+
+      <main class="main">
+        <div class="topbar">
+          <div>
+            <div class="eyebrow">Digital Police Case Registration</div>
+            <h1>Docket Tracker SA</h1>
+          </div>
+          <div class="topbar-actions">
+            <div class="welcome-badge">Welcome, {{ user_name or 'Officer' }}</div>
+            <a class="logout-link" href="{{ url_for('logout') }}">Logout</a>
+          </div>
+        </div>
+
+        {% block content %}{% endblock %}
+      </main>
+    </div>
+  </body>
+</html>

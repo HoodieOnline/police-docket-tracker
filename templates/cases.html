@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+
+{% block title %}Docket Tracker SA • Case Registry{% endblock %}
+
+{% block content %}
+  <div class="toolbar">
+    <div class="toolbar-left">
+      <form method="get" class="toolbar-form">
+        <input class="input" type="text" name="q" value="{{ search_query }}" placeholder="Search case, complainant, station..." />
+        <select class="select" name="status">
+          <option value="All" {% if selected_status == 'All' %}selected{% endif %}>All statuses</option>
+          <option value="Registered" {% if selected_status == 'Registered' %}selected{% endif %}>Registered</option>
+          <option value="Assigned" {% if selected_status == 'Assigned' %}selected{% endif %}>Assigned</option>
+          <option value="Under Investigation" {% if selected_status == 'Under Investigation' %}selected{% endif %}>Under Investigation</option>
+          <option value="Awaiting Evidence" {% if selected_status == 'Awaiting Evidence' %}selected{% endif %}>Awaiting Evidence</option>
+          <option value="Awaiting Supervisor Review" {% if selected_status == 'Awaiting Supervisor Review' %}selected{% endif %}>Awaiting Supervisor Review</option>
+          <option value="Awaiting Court" {% if selected_status == 'Awaiting Court' %}selected{% endif %}>Awaiting Court</option>
+          <option value="Escalated" {% if selected_status == 'Escalated' %}selected{% endif %}>Escalated</option>
+          <option value="Finalized" {% if selected_status == 'Finalized' %}selected{% endif %}>Finalized</option>
+        </select>
+        <button type="submit" class="primary-btn">Filter</button>
+      </form>
+    </div>
+    <div class="toolbar-right">
+      <button class="primary-btn" id="newCaseBtn">+ New case</button>
+    </div>
+  </div>
+
+  <div class="panel">
+    <table>
+      <thead>
+        <tr>
+          <th>Case ID</th>
+          <th>Complainant</th>
+          <th>Station</th>
+          <th>Assigned To</th>
+          <th>Status</th>
+          <th>Days open</th>
+          <th>Progress</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for case in cases %}
+        <tr>
+          <td><a class="case-link" href="{{ url_for('case_detail', case_id=case.case_id) }}">{{ case.case_id }}</a></td>
+          <td>{{ case.complainant }}</td>
+          <td>{{ case.station }}</td>
+          <td>{{ case.assigned_to }}</td>
+          <td><span class="status-pill" style="{{ status_palette[case.status] }}">{{ case.status }}</span></td>
+          <td>{{ case.days_open }}</td>
+          <td>
+            <div class="progress-band">
+              <div class="progress-bg"><div class="progress-fill" style="width: {{ case.progress }}%;"></div></div>
+              <span>{{ case.progress }}%</span>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div id="caseModal" class="modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>Register new case</h3>
+        <button type="button" class="close-btn" id="closeModalBtn">×</button>
+      </div>
+
+      <form method="post" action="{{ url_for('create_case') }}">
+        <div class="field-row">
+          <label>
+            Case ID
+            <input class="input" type="text" name="case_id" placeholder="DTS-2026-0551" required />
+          </label>
+          <label>
+            Complainant
+            <input class="input" type="text" name="complainant" placeholder="S. Nkosi" required />
+          </label>
+        </div>
+
+        <div class="field-row">
+          <label>
+            Station
+            <input class="input" type="text" name="station" placeholder="Johannesburg Central" required />
+          </label>
+          <label>
+            Assigned To
+            <input class="input" type="text" name="assigned_to" placeholder="Detective K. Ndlovu" required />
+          </label>
+        </div>
+
+        <div class="field-row">
+          <label>
+            Status
+            <select class="select" name="status">
+              <option>Registered</option>
+              <option>Under Investigation</option>
+              <option>Awaiting Court</option>
+              <option>Escalated</option>
+              <option>Finalized</option>
+            </select>
+          </label>
+          <label>
+            Days open
+            <input class="input" type="number" name="days_open" value="2" min="0" required />
+          </label>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="button" id="cancelBtn">Cancel</button>
+          <button type="submit" class="primary-btn">Save case</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='cases.js') }}"></script>
+{% endblock %}

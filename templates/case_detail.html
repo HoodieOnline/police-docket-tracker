@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+
+{% block title %}Docket Tracker SA • {{ case.case_id }}{% endblock %}
+
+{% block content %}
+  <div class="toolbar">
+    <a class="button" href="{{ url_for('cases') }}">← Case registry</a>
+    <span class="status-pill" style="{{ status_palette[case.status] if case.status in status_palette else '' }}">{{ case.status }}</span>
+  </div>
+
+  <section class="case-heading panel">
+    <div>
+      <div class="eyebrow">Controlled case record</div>
+      <h2>{{ case.case_id }}</h2>
+      <p class="muted">Complainant: {{ case.complainant }} · Station: {{ case.station }} · Owner: {{ case.assigned_to }}</p>
+    </div>
+    <div class="case-integrity">
+      <span>Audit history</span>
+      <strong>{{ audit_events|length }} events</strong>
+    </div>
+  </section>
+
+  {% if control %}
+  <section class="guardrail-banner {% if control.escalation_level > 0 %}guardrail-alert{% endif %}">
+    <div>
+      <div class="eyebrow">Accountability guardrail</div>
+      <strong>Next required action: {{ control.next_action }}</strong>
+      <p class="muted">Deadline: {{ control.due_at[:16] }} · Escalation level: {{ control.escalation_level }}</p>
+      {% if control.acknowledged_by %}
+      <p class="muted">Acknowledged by {{ control.acknowledged_by }} at {{ control.acknowledged_at[:16] }}.</p>
+      {% endif %}
+    </div>
+    {% if control.escalation_level > 0 and (user_role == 'Supervisor' or user_role == 'Station Commander') %}
+    <form method="post" action="{{ url_for('acknowledge_case', case_id=case.case_id) }}">
+      <button class="primary-btn" type="submit">Acknowledge and own action</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  <div class="grid-two">
+    <div class="mini-panel">
+      <h3>Case lifecycle</h3>
+      {% if can_update %}
+      <form method="post" action="{{ url_for('update_case_status', case_id=case.case_id) }}">
+        <label>Status
+          <select class="select" name="status">
+            {% for status in statuses %}
+            <option value="{{ status }}" {% if status == case.status %}selected{% endif %}>{{ status }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Required reason
+          <textarea class="input" name="reason" rows="3" required placeholder="Explain the decision or next action"></textarea>
+        </label>
+        <button class="primary-btn" type="submit">Record status change</button>
+      </form>
+      {% else %}
+      <p class="muted">Your role can view this record but cannot change its lifecycle.</p>
+      {% endif %}
+    </div>
+
+    <div class="mini-panel">
+      <h3>Refusal or dispute</h3>
+      {% if refusal %}
+      <div class="alert alert-danger"><strong>{{ refusal.status }}</strong><br>{{ refusal.reason }}</div>
+      {% endif %}
+      <form method="post" action="{{ url_for('report_refusal', case_id=case.case_id) }}">
+        <label>Report a refused report, delay, or dispute
+          <textarea class="input" name="reason" rows="3" required placeholder="Describe what happened and when"></textarea>
+        </label>
+        <button class="button" type="submit">Escalate for supervisor review</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="mini-panel">
+    <h3>Explain a delay</h3>
+    <p class="muted">A delay can be legitimate, but it must be documented with a reason and a new review deadline.</p>
+    <form method="post" action="{{ url_for('record_delay_reason', case_id=case.case_id) }}">
+      <label>Reason for delay
+        <textarea class="input" name="reason" rows="3" required placeholder="Record the operational reason and any dependency"></textarea>
+      </label>
+      <button class="button" type="submit">Record explanation</button>
+    </form>
+  </div>
+
+  <div class="grid-two">
+    <div class="mini-panel">
+      <h3>Docket custody</h3>
+      {% if can_transfer %}
+      <form method="post" action="{{ url_for('transfer_custody', case_id=case.case_id) }}">
+        <div class="field-row">
+          <label>From<input class="input" name="from_location" required placeholder="Case desk"></label>
+          <label>To<input class="input" name="to_location" required placeholder="Detective unit"></label>
+        </div>
+        <label>Reason<input class="input" name="reason" required placeholder="Investigation assignment"></label>
+        <button class="primary-btn" type="submit">Record transfer</button>
+      </form>
+      {% endif %}
+      <div class="timeline compact-timeline">
+        {% for transfer in custody %}
+        <div class="event"><strong>{{ transfer.created_at[:16] }}</strong> {{ transfer.from_location }} → {{ transfer.to_location }} <span class="meta">{{ transfer.transferred_by }} · {{ transfer.reason }}</span></div>
+        {% else %}
+        <p class="muted">No custody transfers recorded yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mini-panel">
+      <h3>Append-only audit trail</h3>
+      <div class="timeline compact-timeline">
+        {% for event in audit_events %}
+        <div class="event"><strong>{{ event.created_at[:16] }}</strong> {{ event.action }} <span class="meta">{{ event.actor }} ({{ event.actor_role }}) · {{ event.details }}</span></div>
+        {% else %}
+        <p class="muted">No audit events recorded.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endblock %}

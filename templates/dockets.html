@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Docket Tracker SA • Docket Flow{% endblock %}
+
+{% block content %}
+  <div class="grid-two">
+    <div class="mini-panel">
+      <h3>Docket custody chain</h3>
+      <div class="timeline">
+        {% for movement in movements %}
+        <div class="event">
+          <strong>{{ movement.created_at[:16] }}</strong> {{ movement.from_location }} → {{ movement.to_location }} <span class="meta">{{ movement.case_id }} · {{ movement.transferred_by }} · {{ movement.reason }}</span>
+        </div>
+        {% else %}
+        <p class="muted">No custody transfers recorded yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mini-panel">
+      <h3>Movement log</h3>
+      <ul class="alert-list">
+        {% for log in logs %}
+        <li><strong>{{ log.action }}</strong><br>{{ log.case_id }} · {{ log.actor }} · {{ log.details }}</li>
+        {% else %}
+        <li>No audit events recorded.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </div>
+{% endblock %}

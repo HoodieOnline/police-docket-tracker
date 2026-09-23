@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}Docket Tracker SA • Dashboard{% endblock %}
+
+{% block content %}
+  <header class="hero">
+    <div class="eyebrow">SAPS Operations</div>
+    <h2>{{ dashboard_title }}</h2>
+    <p>
+      {{ dashboard_description }}
+    </p>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="label">Open cases</div>
+      <div class="value">{{ summary.open_cases }}</div>
+      <div class="trend">{{ summary.open_trend }}</div>
+    </article>
+    <article class="stat-card">
+      <div class="label">Requiring action</div>
+      <div class="value">{{ summary.require_action }}</div>
+      <div class="trend">{{ summary.action_trend }}</div>
+    </article>
+    <article class="stat-card">
+      <div class="label">Avg. days open</div>
+      <div class="value">{{ summary.avg_days }}</div>
+      <div class="trend">{{ summary.days_trend }}</div>
+    </article>
+    <article class="stat-card">
+      <div class="label">Finalized</div>
+      <div class="value">{{ summary.finalized }}</div>
+      <div class="trend">Completed</div>
+    </article>
+  </section>
+
+  <section class="content-grid">
+    <div class="panel">
+      <div class="section-header">Case overview</div>
+      <div class="bar-chart" aria-label="Case status chart">
+        {% for item in status_breakdown %}
+        <div class="bar-col">
+          <div class="bar-stack"><div class="bar" style="height: {{ item.height }}%; background: {{ item.color }};"></div></div>
+          <div class="bar-label">{{ item.label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="section-header">Recent activity</div>
+      <div class="timeline">
+        {% for event in recent_activity %}
+        <div class="event">
+          <strong>{{ event.created_at[:16] }}</strong> {{ event.action }} <span class="meta">{{ event.case_id }} · {{ event.actor }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel action-panel">
+    <div class="section-header">Your action queue</div>
+    <p class="muted">Cases and tasks that require attention for the {{ role }} role.</p>
+    <div class="action-grid">
+      {% for case in action_queue %}
+      <a class="action-card" href="{{ url_for('case_detail', case_id=case.case_id) }}">
+        <strong>{{ case.case_id }}</strong>
+        <span>{{ case.status }}</span>
+        <small>{{ case.days_open }} days open · {{ case.assigned_to }}</small>
+      </a>
+      {% else %}
+      <p class="muted">No outstanding actions.</p>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section class="guardrail-note">
+    <strong>Accountability controls active</strong>
+    <span>Required actions have deadlines. Overdue work is escalated, refusal/dispute reports are recorded, and supervisors must acknowledge exceptions.</span>
+  </section>
+{% endblock %}

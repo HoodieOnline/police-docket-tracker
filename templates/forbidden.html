@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Docket Tracker SA • Access denied{% endblock %}
+
+{% block content %}
+  <div class="panel empty-state">
+    <div class="eyebrow">Permission required</div>
+    <h2>Access denied</h2>
+    <p class="muted">Your role cannot perform this action. Required role or permission: {{ required_roles }}.</p>
+    <a class="primary-btn" href="{{ url_for('dashboard') }}">Return to dashboard</a>
+  </div>
+{% endblock %}

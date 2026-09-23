@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Docket Tracker SA • Reports{% endblock %}
+
+{% block content %}
+  <div class="grid-two">
+    <div class="mini-panel">
+      <h3>Department performance</h3>
+      <div class="report-bars">
+        {% for bar in report_bars %}
+        <div class="report-bar-col">
+          <div class="report-bar" style="height: {{ bar.height }}%;"></div>
+          <div class="bar-label">{{ bar.label }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="mini-panel">
+      <h3>Key metrics</h3>
+      <div class="key-metrics">
+        {% for metric in key_metrics %}
+        <div class="metric-box">
+          <div class="metric-label">{{ metric.label }}</div>
+          <div class="metric-value">{{ metric.value }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+{% endblock %}
