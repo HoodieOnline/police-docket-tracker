@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}Docket Tracker SA • Clerk Dashboard{% endblock %}
+
+{% block content %}
+  <header class="hero">
+    <div class="eyebrow">Case intake operations</div>
+    <h2>Clerk dashboard</h2>
+    <p>Register complaints, issue receipts, and route each docket to the correct owner.</p>
+  </header>
+
+  <section class="stats-grid">
+    <article class="stat-card">
+      <div class="label">Awaiting intake</div>
+      <div class="value">{{ summary.registered }}</div>
+      <div class="trend">Registration queue</div>
+    </article>
+    <article class="stat-card">
+      <div class="label">Open cases</div>
+      <div class="value">{{ summary.open_cases }}</div>
+      <div class="trend">Station records</div>
+    </article>
+    <article class="stat-card">
+      <div class="label">My recent receipts</div>
+      <div class="value">{{ summary.receipts }}</div>
+      <div class="trend">Audit activity</div>
+    </article>
+    <article class="stat-card">
+      <div class="label">Recent transfers</div>
+      <div class="value">{{ summary.transfers }}</div>
+      <div class="trend">Custody movement</div>
+    </article>
+  </section>
+
+  <section class="clerk-actions">
+    <a class="primary-btn" href="{{ url_for('cases') }}">Open case registry</a>
+    <a class="button" href="{{ url_for('cases') }}#newCaseBtn">Register a new case</a>
+    <a class="button" href="{{ url_for('dockets') }}">View docket flow</a>
+  </section>
+
+  <section class="content-grid">
+    <div class="panel">
+      <div class="section-header">Intake queue</div>
+      <div class="action-grid">
+        {% for case in intake_cases %}
+        <a class="action-card" href="{{ url_for('case_detail', case_id=case.case_id) }}">
+          <strong>{{ case.case_id }}</strong>
+          <span>{{ case.complainant }}</span>
+          <small>{{ case.station }} · {{ case.days_open }} days open</small>
+        </a>
+        {% else %}
+        <p class="muted">No cases are waiting for intake.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="section-header">Recent station activity</div>
+      <div class="timeline">
+        {% for event in recent_activity %}
+        <div class="event">
+          <strong>{{ event.created_at[:16] }}</strong> {{ event.action }}
+          <span class="meta">{{ event.case_id }} · {{ event.actor }}</span>
+        </div>
+        {% else %}
+        <p class="muted">No recent activity.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="guardrail-note">
+    <strong>Intake controls active</strong>
+    <span>Every registration and transfer is recorded in the case audit trail for accountability.</span>
+  </section>
+{% endblock %}

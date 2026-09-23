@@ -391,11 +391,15 @@ def login():
             session["user"] = user["username"]
             session["role"] = user["role"]
             session["station"] = user["station"]
+            if user["role"] == "Admin Clerk":
+                return redirect(url_for("clerk_dashboard"))
             return redirect(url_for("dashboard"))
 
         return render_template("login.html", error="Invalid username or password.")
 
     if "user" in session:
+        if session.get("role") == "Admin Clerk":
+            return redirect(url_for("clerk_dashboard"))
         return redirect(url_for("dashboard"))
     return render_template("login.html", error=None)
 
@@ -415,6 +419,8 @@ def index():
 @app.route("/dashboard")
 @require_login
 def dashboard():
+    if session.get("role") == "Admin Clerk":
+        return redirect(url_for("clerk_dashboard"))
     conn = get_db()
     commit_guardrails(conn)
     cases = conn.execute("SELECT * FROM cases ORDER BY updated_at DESC").fetchall()
@@ -504,6 +510,40 @@ def dashboard():
         dashboard_title=role_copy.get(role, ("Operations dashboard", "Monitor current case activity."))[0],
         dashboard_description=role_copy.get(role, ("Operations dashboard", "Monitor current case activity."))[1],
         role=role,
+    )
+
+
+@app.route("/clerk")
+@require_login
+@role_required("Admin Clerk")
+def clerk_dashboard():
+    conn = get_db()
+    commit_guardrails(conn)
+    cases = conn.execute(
+        "SELECT * FROM cases ORDER BY updated_at DESC"
+    ).fetchall()
+    recent_activity = conn.execute(
+        "SELECT * FROM audit_events ORDER BY created_at DESC LIMIT 6"
+    ).fetchall()
+    conn.close()
+
+    intake_cases = [case for case in cases if case["status"] == "Registered"]
+    summary = {
+        "registered": len(intake_cases),
+        "open_cases": sum(1 for case in cases if case["status"] != "Finalized"),
+        "receipts": sum(1 for event in recent_activity if event["actor"] == session["user"]),
+        "transfers": sum(1 for event in recent_activity if event["action"] == "Docket transferred"),
+    }
+    return render_template(
+        "clerk_dashboard.html",
+        current_page="clerk",
+        user_name=session["user"],
+        user_role=session["role"],
+        user_station=session["station"],
+        integrity_score=72,
+        summary=summary,
+        intake_cases=intake_cases,
+        recent_activity=recent_activity,
     )
 
 

@@ -16,4 +16,7 @@ if (modal) {
   modal.addEventListener('click', (event) => {
     if (event.target === modal) modal.classList.remove('open');
   });
+  if (window.location.hash === '#newCaseBtn') {
+    modal.classList.add('open');
+  }
 }

@@ -339,6 +339,13 @@ h1 {
   margin-top: 18px;
 }
 
+.clerk-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
 .action-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(180px, 1fr));

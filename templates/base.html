@@ -22,7 +22,7 @@
 
         <nav class="nav-group">
           <p class="nav-title">Overview</p>
-          <a class="nav-item {% if current_page == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}">Dashboard</a>
+          <a class="nav-item {% if current_page in ['dashboard', 'clerk'] %}active{% endif %}" href="{{ url_for('clerk_dashboard' if user_role == 'Admin Clerk' else 'dashboard') }}">Dashboard</a>
           <a class="nav-item {% if current_page == 'cases' %}active{% endif %}" href="{{ url_for('cases') }}">Case Registry</a>
           <a class="nav-item {% if current_page == 'dockets' %}active{% endif %}" href="{{ url_for('dockets') }}">Docket Flow</a>
           <a class="nav-item {% if current_page == 'reports' %}active{% endif %}" href="{{ url_for('reports') }}">Reports</a>
