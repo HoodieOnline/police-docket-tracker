@@ -240,7 +240,6 @@ def init_seed_data(conn):
         ("commander", "commander123", "Station Commander", "Johannesburg Central"),
         ("detective", "detective123", "Detective", "Johannesburg Central"),
         ("clerk", "clerk123", "Admin Clerk", "Johannesburg Central"),
-        ("supervisor", "supervisor123", "Supervisor", "Johannesburg Central"),
     ]
     for username, password, role, station in demo_users:
         conn.execute(

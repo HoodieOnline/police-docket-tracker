@@ -21,7 +21,6 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000).
 | --- | --- | --- |
 | `admin` | `admin123` | System Administrator |
 | `commander` | `commander123` | Station Commander |
-| `supervisor` | `supervisor123` | Supervisor |
 | `detective` | `detective123` | Detective |
 | `clerk` | `clerk123` | Admin Clerk |
 
