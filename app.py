@@ -237,7 +237,6 @@ def init_seed_data(conn):
 
     demo_users = [
         ("admin", "admin123", "System Administrator", "Johannesburg Central"),
-        ("commander", "commander123", "Station Commander", "Johannesburg Central"),
         ("detective", "detective123", "Detective", "Johannesburg Central"),
         ("clerk", "clerk123", "Admin Clerk", "Johannesburg Central"),
     ]
