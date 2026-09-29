@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Create complainant account • Docket Tracker SA</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+  </head>
+  <body class="login-page">
+    <main class="login-card">
+      <div class="login-header">
+        <div>
+          <h2>Complainant account</h2>
+          <p>Create a secure account to report an incident and follow its status.</p>
+        </div>
+      </div>
+      {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
+      <form method="post" class="login-form">
+        <div class="field-row">
+          <label>First name<input class="input" name="first_name" required autocomplete="given-name"></label>
+          <label>Surname<input class="input" name="last_name" required autocomplete="family-name"></label>
+        </div>
+        <div class="field-row">
+          <label>Username<input class="input" name="username" required autocomplete="username"></label>
+          <label>Phone number<input class="input" name="phone_number" required autocomplete="tel"></label>
+        </div>
+        <label>Email (optional)<input class="input" type="email" name="email" autocomplete="email"></label>
+        <label>South African ID number (optional)<input class="input" name="id_number" inputmode="numeric"></label>
+        <label>Address (optional)<textarea class="input" name="address" rows="2" autocomplete="street-address"></textarea></label>
+        <label>Password (at least 10 characters)<input class="input" type="password" name="password" minlength="10" required autocomplete="new-password"></label>
+        <button class="primary-btn wide" type="submit">Create account</button>
+      </form>
+      <p class="muted">Already registered? <a class="case-link" href="{{ url_for('login') }}">Sign in</a></p>
+    </main>
+  </body>
+</html>

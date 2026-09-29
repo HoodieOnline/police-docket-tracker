@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ case.case_id }} updates • Docket Tracker SA{% endblock %}
+
+{% block content %}
+  <div class="toolbar"><a class="button" href="{{ url_for('my_cases') }}">← My cases</a></div>
+  <section class="case-heading panel">
+    <div><div class="eyebrow">Your case status</div><h2>{{ case.case_id }}</h2><p class="muted">{{ case.station }} · Reported {{ case.created_at }}</p></div>
+    <span class="status-pill">{{ case.status }}</span>
+  </section>
+  {% if case.closing_reason %}<section class="mini-panel"><h3>Case outcome</h3><p>{{ case.closing_reason }}</p></section>{% endif %}
+  <section class="mini-panel">
+    <h3>Status updates</h3>
+    <div class="timeline">
+      {% for item in history %}
+      <div class="event"><strong>{{ item.changed_at[:16] }}</strong> {{ item.previous_status or 'Report' }} → {{ item.new_status }} <span class="meta">{{ item.reason }}</span></div>
+      {% else %}<p class="muted">No status changes recorded yet.</p>{% endfor %}
+    </div>
+  </section>
+{% endblock %}

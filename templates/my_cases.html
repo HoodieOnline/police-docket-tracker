@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+
+{% block title %}My cases • Docket Tracker SA{% endblock %}
+
+{% block content %}
+  <header class="hero">
+    <div class="eyebrow">Complainant portal</div>
+    <h2>Your reports</h2>
+    <p>Submit an incident report and follow station verification, assignment, investigation and closure updates.</p>
+  </header>
+
+  <div class="toolbar">
+    <span class="muted">Only cases submitted from your account are shown here.</span>
+    <a class="primary-btn" href="{{ url_for('report_case') }}">Report an incident</a>
+  </div>
+
+  <section class="panel">
+    <div class="section-header">Case status</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Case number</th><th>Station</th><th>Status</th><th>Last updated</th><th>Closure</th><th></th></tr></thead>
+        <tbody>
+          {% for case in cases %}
+          <tr>
+            <td>{{ case.case_id }}</td>
+            <td>{{ case.station }}</td>
+            <td><span class="status-pill">{{ case.status }}</span></td>
+            <td>{{ case.updated_at }}</td>
+            <td>{{ case.closing_reason or '—' }}</td>
+            <td><a class="case-link" href="{{ url_for('my_case_status', case_id=case.case_id) }}">View updates</a></td>
+          </tr>
+          {% else %}
+          <tr><td colspan="6" class="muted">You have not submitted a report yet.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="mini-panel">
+    <h3>Messages</h3>
+    <div class="timeline">
+      {% for item in notifications %}
+      <div class="event">
+        <strong>{{ item.created_at[:16] }} · {{ item.channel }}</strong>
+        {{ item.message }}
+        <span class="meta">{{ item.delivery_status }}</span>
+      </div>
+      {% else %}
+      <p class="muted">No case messages yet.</p>
+      {% endfor %}
+    </div>
+    <p class="muted">SMS delivery requires a configured messaging gateway; queued messages are not represented as sent.</p>
+  </section>
+{% endblock %}

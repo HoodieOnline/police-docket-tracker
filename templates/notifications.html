@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+
+{% block title %}Notifications • Docket Tracker SA{% endblock %}
+
+{% block content %}
+  <header class="hero">
+    <div class="eyebrow">System messages</div>
+    <h2>Notifications</h2>
+    <p>Case assignments, receipt requests and case updates addressed to your account.</p>
+  </header>
+  <section class="mini-panel">
+    <div class="timeline">
+      {% for item in messages %}
+      <div class="event">
+        <strong>{{ item.created_at[:16] }} · {{ item.channel }}</strong>
+        {{ item.message }}
+        {% if item.case_id %}
+          {% if user_role == 'Complainant' %}
+          <a class="case-link" href="{{ url_for('my_case_status', case_id=item.case_id) }}">{{ item.case_id }}</a>
+          {% else %}
+          <a class="case-link" href="{{ url_for('case_detail', case_id=item.case_id) }}">{{ item.case_id }}</a>
+          {% endif %}
+        {% endif %}
+        <span class="meta">{{ item.notification_type }} · {{ item.delivery_status }}</span>
+      </div>
+      {% else %}
+      <p class="muted">No notifications yet.</p>
+      {% endfor %}
+    </div>
+    <p class="muted">SMS rows remain queued until an SMS gateway is configured; this prototype does not claim or simulate delivery.</p>
+  </section>
+{% endblock %}

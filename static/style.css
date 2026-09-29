@@ -782,6 +782,32 @@ form {
   gap: 12px;
 }
 
+.stack-form {
+  margin-top: 12px;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.report-filter {
+  margin-bottom: 18px;
+  align-items: end;
+}
+
+.report-filter label {
+  min-width: 180px;
+}
+
+.report-filter input {
+  width: 100%;
+}
+
+.event .meta {
+  display: block;
+  margin-top: 5px;
+}
+
 .field-row {
   display: grid;
   grid-template-columns: repeat(2, minmax(170px, 1fr));

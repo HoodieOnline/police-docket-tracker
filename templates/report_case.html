@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}Report an incident • Docket Tracker SA{% endblock %}
+
+{% block content %}
+  <div class="toolbar"><a class="button" href="{{ url_for('my_cases') }}">← My cases</a></div>
+  <section class="panel form-panel">
+    <div class="section-header">Incident report</div>
+    <p class="muted">Your statement is saved with your account and is visible only to authorized station staff.</p>
+    <form method="post" class="stack-form">
+      <div class="field-row">
+        <label>Station
+          <select class="select" name="station" required>
+            <option value="">Select a station</option>
+            {% for station in stations %}<option value="{{ station.name }}">{{ station.name }}</option>{% endfor %}
+          </select>
+        </label>
+        <label>Case category
+          <select class="select" name="case_type" required>
+            <option value="">Choose a category</option>
+            {% for category in case_types %}<option value="{{ category.name }}">{{ category.name }}</option>{% endfor %}
+          </select>
+        </label>
+      </div>
+      <div class="field-row">
+        <label>Incident date<input class="input" type="date" name="incident_date" required></label>
+        <label>Incident location<input class="input" name="incident_location" required maxlength="240"></label>
+      </div>
+      <label>What happened?
+        <textarea class="input" name="statement" rows="8" minlength="30" required placeholder="Provide a factual account, including relevant dates, times and events."></textarea>
+      </label>
+      <button class="primary-btn" type="submit">Submit report</button>
+    </form>
+  </section>
+{% endblock %}

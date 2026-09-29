@@ -20,6 +20,83 @@
     </div>
   </section>
 
+  <section class="grid-two">
+    <div class="mini-panel">
+      <h3>Report statement</h3>
+      <p>{{ case.statement or 'No statement was captured on the legacy record.' }}</p>
+      <p class="muted">Category: {{ case.case_type }} · Incident date: {{ case.incident_date or 'Not recorded' }} · Location: {{ case.incident_location or 'Not recorded' }}</p>
+      <p class="muted">Priority: {{ case.priority }} · Docket format: {{ case.docket_format }} · Current location: {{ case.current_location or 'Not recorded' }}</p>
+      {% if case.complainant_phone or case.complainant_email %}
+      <p class="muted">Complainant contact: {{ case.complainant_phone }} {{ case.complainant_email }}</p>
+      {% endif %}
+    </div>
+    <div class="mini-panel">
+      <h3>Docket record</h3>
+      {% if docket %}
+      <p><strong>{{ docket.docket_number }}</strong> · {{ docket.status }}</p>
+      <p class="muted">Created {{ docket.created_at }} · Physical copy: {{ 'Available' if docket.physical_available else 'No' }} · Storage: {{ docket.storage_location }}</p>
+      {% else %}
+      <p class="muted">The clerk has not verified the report or opened its docket yet.</p>
+      {% endif %}
+      {% if can_verify %}
+      <form method="post" action="{{ url_for('verify_case', case_id=case.case_id) }}" class="stack-form">
+        <label>Docket format
+          <select class="select" name="docket_format" required>
+            <option>Electronic</option><option>Physical</option>
+          </select>
+        </label>
+        <label>Initial storage / intake location<input class="input" name="storage_location" value="{{ case.station }} case intake" required></label>
+        <button class="primary-btn" type="submit">Verify report and open docket</button>
+      </form>
+      {% endif %}
+    </div>
+  </section>
+
+  {% if can_assign or can_close %}
+  <section class="grid-two">
+    {% if can_assign %}
+    <div class="mini-panel">
+      <h3>Captain: detective assignment</h3>
+      <p class="muted">Assign or reassign a detective. The assignment and docket movement are recorded, and the detective is notified.</p>
+      <form method="post" action="{{ url_for('assign_detective', case_id=case.case_id) }}" class="stack-form">
+        <label>Detective
+          <select class="select" name="detective_id" required>
+            <option value="">Choose an active detective</option>
+            {% for detective in detectives %}
+            <option value="{{ detective.id }}">{{ detective.first_name }} {{ detective.last_name }} · {{ detective.employee_number }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <button class="primary-btn" type="submit">Assign / reassign detective</button>
+      </form>
+    </div>
+    {% endif %}
+    {% if can_close %}
+    <div class="mini-panel">
+      <h3>Captain: close case</h3>
+      <p class="muted">The closed record and docket remain retained in the system. Select the outcome and document why the investigation is closing.</p>
+      <form method="post" action="{{ url_for('close_case', case_id=case.case_id) }}" class="stack-form">
+        <label>Outcome<select class="select" name="outcome" required>
+          <option value="">Select outcome</option>
+          <option>Investigation completed</option><option>Dead end</option>
+        </select></label>
+        <label>Closing reason<textarea class="input" name="closing_reason" rows="3" required></textarea></label>
+        <button class="primary-btn" type="submit">Close and retain docket</button>
+      </form>
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
+  {% if can_receive %}
+  <section class="guardrail-banner">
+    <div><strong>Docket assigned to you</strong><p class="muted">Confirm that you received the electronic or physical docket before proceeding.</p></div>
+    <form method="post" action="{{ url_for('receive_docket', case_id=case.case_id) }}">
+      <button class="primary-btn" type="submit">Confirm docket received</button>
+    </form>
+  </section>
+  {% endif %}
+
   {% if control %}
   <section class="guardrail-banner {% if control.escalation_level > 0 %}guardrail-alert{% endif %}">
     <div>
@@ -44,9 +121,10 @@
       {% if can_update %}
       <form method="post" action="{{ url_for('update_case_status', case_id=case.case_id) }}">
         <label>Status
-          <select class="select" name="status">
+          <select class="select" name="status" required>
+            <option value="" disabled selected>Choose the next valid status</option>
             {% for status in statuses %}
-            <option value="{{ status }}" {% if status == case.status %}selected{% endif %}>{{ status }}</option>
+            <option value="{{ status }}">{{ status }}</option>
             {% endfor %}
           </select>
         </label>
@@ -55,6 +133,8 @@
         </label>
         <button class="primary-btn" type="submit">Record status change</button>
       </form>
+      {% elif can_manage_lifecycle %}
+      <p class="muted">No further status changes are available for your role at this stage. Finalized cases are terminal.</p>
       {% else %}
       <p class="muted">Your role can view this record but cannot change its lifecycle.</p>
       {% endif %}
@@ -65,15 +145,20 @@
       {% if refusal %}
       <div class="alert alert-danger"><strong>{{ refusal.status }}</strong><br>{{ refusal.reason }}</div>
       {% endif %}
+      {% if case.status not in ['Finalized', 'Closed'] %}
       <form method="post" action="{{ url_for('report_refusal', case_id=case.case_id) }}">
         <label>Report a refused report, delay, or dispute
           <textarea class="input" name="reason" rows="3" required placeholder="Describe what happened and when"></textarea>
         </label>
         <button class="button" type="submit">Escalate for supervisor review</button>
       </form>
+      {% else %}
+      <p class="muted">This case is finalized and cannot be escalated through this form.</p>
+      {% endif %}
     </div>
   </div>
 
+  {% if can_document_delay %}
   <div class="mini-panel">
     <h3>Explain a delay</h3>
     <p class="muted">A delay can be legitimate, but it must be documented with a reason and a new review deadline.</p>
@@ -84,6 +169,7 @@
       <button class="button" type="submit">Record explanation</button>
     </form>
   </div>
+  {% endif %}
 
   <div class="mini-panel">
     <h3>Legal and directive checkpoints</h3>
@@ -117,14 +203,39 @@
       <h3>Docket custody</h3>
       {% if can_transfer %}
       <form method="post" action="{{ url_for('transfer_custody', case_id=case.case_id) }}">
+        <p class="muted">From: {{ case.current_location or docket.storage_location if docket else case.station }}</p>
         <div class="field-row">
-          <label>From<input class="input" name="from_location" required placeholder="Case desk"></label>
-          <label>To<input class="input" name="to_location" required placeholder="Detective unit"></label>
+          <label>Movement type<select class="select" name="movement_type" required><option>Electronic</option><option>Physical</option></select></label>
+          <label>Destination<input class="input" name="to_location" required placeholder="Detective unit / records room"></label>
         </div>
-        <label>Reason<input class="input" name="reason" required placeholder="Investigation assignment"></label>
+        <label>Recipient (optional)
+          <select class="select" name="to_employee_id">
+            <option value="">No employee hand-off</option>
+            {% for employee in station_employees %}
+            <option value="{{ employee.id }}">{{ employee.first_name }} {{ employee.last_name }} · {{ employee.role }} · {{ employee.employee_number }}</option>
+            {% endfor %}
+          </select>
+        </label>
+        <label>Reason<input class="input" name="reason" required placeholder="Why is the docket moving?"></label>
         <button class="primary-btn" type="submit">Record transfer</button>
       </form>
       {% endif %}
+      <div class="timeline compact-timeline">
+        {% for movement in movements %}
+        <div class="event">
+          <strong>{{ movement.moved_at[:16] }}</strong>
+          {{ movement.movement_type }} · {{ movement.from_location }} → {{ movement.to_location }}
+          <span class="meta">Moved by {{ movement.moved_by or 'System' }} · {{ movement.reason }}{% if movement.to_employee_number %} · Recipient {{ movement.to_employee_number }}{% endif %}{% if movement.received_at %} · Received {{ movement.received_at[:16] }} by {{ movement.received_employee_number }}{% else %} · Awaiting receipt{% endif %}</span>
+          {% if movement.to_employee_id == employee_id and not movement.received_at %}
+          <form method="post" action="{{ url_for('receive_movement', movement_id=movement.id) }}">
+            <button class="button" type="submit">Confirm this movement received</button>
+          </form>
+          {% endif %}
+        </div>
+        {% else %}
+        <p class="muted">No docket movements recorded yet.</p>
+        {% endfor %}
+      </div>
       <div class="timeline compact-timeline">
         {% for transfer in custody %}
         <div class="event"><strong>{{ transfer.created_at[:16] }}</strong> {{ transfer.from_location }} → {{ transfer.to_location }} <span class="meta">{{ transfer.transferred_by }} · {{ transfer.reason }}</span></div>
@@ -143,6 +254,15 @@
         <p class="muted">No audit events recorded.</p>
         {% endfor %}
       </div>
+    </div>
+  </div>
+
+  <div class="mini-panel">
+    <h3>Case status history</h3>
+    <div class="timeline compact-timeline">
+      {% for item in status_history %}
+      <div class="event"><strong>{{ item.changed_at[:16] }}</strong> {{ item.previous_status or 'New report' }} → {{ item.new_status }} <span class="meta">{{ item.changed_by or 'System' }} · {{ item.reason }}</span></div>
+      {% else %}<p class="muted">No status history recorded.</p>{% endfor %}
     </div>
   </div>
 {% endblock %}

@@ -41,7 +41,7 @@
         {% for item in status_breakdown %}
         <div class="bar-col">
           <div class="bar-stack"><div class="bar" style="height: {{ item.height }}%; background: {{ item.color }};"></div></div>
-          <div class="bar-label">{{ item.label }}</div>
+          <div class="bar-label">{{ item.label }} · {{ item.count }}</div>
         </div>
         {% endfor %}
       </div>

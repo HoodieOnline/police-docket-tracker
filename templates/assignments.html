@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block title %}Detective assignments • Docket Tracker SA{% endblock %}
+
+{% block content %}
+  <header class="hero">
+    <div class="eyebrow">Captain's assignment desk</div>
+    <h2>Assign and track dockets</h2>
+    <p>Assign or reassign a verified docket to an active detective at this station. The detective must confirm receipt.</p>
+  </header>
+  <section class="panel">
+    <div class="section-header">Open station dockets</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Docket / Case</th><th>Complainant</th><th>Status</th><th>Current detective</th><th>Assignment</th></tr></thead>
+        <tbody>
+          {% for case in cases %}
+          <tr>
+            <td><a class="case-link" href="{{ url_for('case_detail', case_id=case.case_id) }}">{{ case.docket_number or 'Awaiting docket' }}<br>{{ case.case_id }}</a></td>
+            <td>{{ case.complainant }}</td>
+            <td>{{ case.status }}</td>
+            <td>{{ case.assigned_to }}</td>
+            <td>
+              {% if can_assign and case.docket_id %}
+              <form method="post" action="{{ url_for('assign_detective', case_id=case.case_id) }}" class="inline-form">
+                <select class="select" name="detective_id" required>
+                  <option value="">Select detective</option>
+                  {% for detective in detectives %}
+                  <option value="{{ detective.id }}">{{ detective.first_name }} {{ detective.last_name }} · {{ detective.employee_number }}</option>
+                  {% endfor %}
+                </select>
+                <button class="primary-btn" type="submit">Assign / reassign</button>
+              </form>
+              {% elif can_assign %}<span class="muted">Clerk verification required</span>
+              {% else %}<span class="muted">Read-only assignment overview</span>{% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="muted">No open station cases.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+{% endblock %}

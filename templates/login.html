@@ -26,14 +26,16 @@
       <form method="post" class="login-form">
         <label>
           Username
-          <input type="text" name="username" value="admin" required />
+          <input type="text" name="username" autocomplete="username" required />
         </label>
         <label>
           Password
-          <input type="password" name="password" value="admin123" required />
+          <input type="password" name="password" autocomplete="current-password" required />
         </label>
         <button type="submit" class="primary-btn wide">Login to dashboard</button>
       </form>
+
+      <p class="muted">Reporting an incident? <a class="case-link" href="{{ url_for('register_complainant') }}">Create a complainant account</a></p>
 
       <div class="demo-credentials">
         <span>Demo credentials</span>
@@ -41,6 +43,8 @@
           <div><strong>admin</strong><span>admin123</span><small>System Administrator</small></div>
           <div><strong>detective</strong><span>detective123</span><small>Detective</small></div>
           <div><strong>clerk</strong><span>clerk123</span><small>Admin Clerk</small></div>
+          <div><strong>captain</strong><span>captain123</span><small>Captain</small></div>
+          <div><strong>commander</strong><span>commander123</span><small>Station Commander</small></div>
         </div>
       </div>
     </div>

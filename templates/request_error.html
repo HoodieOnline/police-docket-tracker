@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+
+{% block title %}Request not accepted • Docket Tracker SA{% endblock %}
+
+{% block content %}
+  <section class="mini-panel">
+    <div class="eyebrow">Request not accepted</div>
+    <h2>Review the case action</h2>
+    <p class="muted">{{ message }}</p>
+    <a class="button" href="{{ url_for('cases') }}">Return to case registry</a>
+  </section>
+{% endblock %}

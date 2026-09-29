@@ -22,7 +22,9 @@
       </form>
     </div>
     <div class="toolbar-right">
+      {% if can_register %}
       <button class="primary-btn" id="newCaseBtn">+ New case</button>
+      {% endif %}
     </div>
   </div>
 
@@ -60,6 +62,7 @@
     </table>
   </div>
 
+  {% if can_register %}
   <div id="caseModal" class="modal">
     <div class="modal-card">
       <div class="modal-header">
@@ -70,50 +73,58 @@
       <form method="post" action="{{ url_for('create_case') }}">
         <div class="field-row">
           <label>
-            Case ID
-            <input class="input" type="text" name="case_id" placeholder="DTS-2026-0551" required />
+            Local reference (optional)
+            <input class="input" type="text" name="case_id" placeholder="Leave blank for a generated case number" />
           </label>
           <label>
             Complainant
-            <input class="input" type="text" name="complainant" placeholder="S. Nkosi" required />
+            <input class="input" type="text" name="complainant" placeholder="Full name" required />
           </label>
         </div>
 
         <div class="field-row">
           <label>
             Station
-            <input class="input" type="text" name="station" placeholder="Johannesburg Central" required />
+            <input class="input" type="text" name="station" value="{{ user_station }}" required />
           </label>
           <label>
-            Assigned To
-            <input class="input" type="text" name="assigned_to" placeholder="Detective K. Ndlovu" required />
+            Incident category
+            <select class="select" name="case_type" required>
+              {% for category in case_types %}<option value="{{ category.name }}">{{ category.name }}</option>{% endfor %}
+            </select>
           </label>
         </div>
 
         <div class="field-row">
           <label>
-            Status
-            <select class="select" name="status">
-              <option>Registered</option>
-              <option>Under Investigation</option>
-              <option>Awaiting Court</option>
-              <option>Escalated</option>
-              <option>Finalized</option>
-            </select>
+            Incident date
+            <input class="input" type="date" name="incident_date" required />
           </label>
           <label>
-            Days open
-            <input class="input" type="number" name="days_open" value="2" min="0" required />
+            Incident location
+            <input class="input" name="incident_location" required />
           </label>
+        </div>
+        <label>Complainant statement
+          <textarea class="input" name="statement" rows="5" minlength="30" required></textarea>
+        </label>
+        <div class="field-row">
+          <label>Phone (optional)<input class="input" name="complainant_phone"></label>
+          <label>Email (optional)<input class="input" type="email" name="complainant_email"></label>
+        </div>
+        <div class="field-row">
+          <label>ID number (optional)<input class="input" name="complainant_id_number"></label>
+          <label>Address (optional)<input class="input" name="complainant_address"></label>
         </div>
 
         <div class="modal-actions">
           <button type="button" class="button" id="cancelBtn">Cancel</button>
-          <button type="submit" class="primary-btn">Save case</button>
+          <button type="submit" class="primary-btn">Capture for verification</button>
         </div>
       </form>
     </div>
   </div>
 
   <script src="{{ url_for('static', filename='cases.js') }}"></script>
+  {% endif %}
 {% endblock %}

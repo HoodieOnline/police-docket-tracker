@@ -22,11 +22,23 @@
 
         <nav class="nav-group">
           <p class="nav-title">Overview</p>
+          {% if user_role == 'Complainant' %}
+          <a class="nav-item {% if current_page == 'my_cases' %}active{% endif %}" href="{{ url_for('my_cases') }}">My cases</a>
+          <a class="nav-item" href="{{ url_for('report_case') }}">Report an incident</a>
+          {% else %}
           <a class="nav-item {% if current_page in ['dashboard', 'clerk'] %}active{% endif %}" href="{{ url_for('clerk_dashboard' if user_role == 'Admin Clerk' else 'dashboard') }}">Dashboard</a>
           <a class="nav-item {% if current_page == 'cases' %}active{% endif %}" href="{{ url_for('cases') }}">Case Registry</a>
           <a class="nav-item {% if current_page == 'dockets' %}active{% endif %}" href="{{ url_for('dockets') }}">Docket Flow</a>
           <a class="nav-item {% if current_page == 'reports' %}active{% endif %}" href="{{ url_for('reports') }}">Reports</a>
           <a class="nav-item {% if current_page == 'legal' %}active{% endif %}" href="{{ url_for('legal_references') }}">Legal &amp; Directives</a>
+          {% if user_role in ['Captain', 'Station Commander', 'System Administrator'] %}
+          <a class="nav-item {% if current_page == 'assignments' %}active{% endif %}" href="{{ url_for('assignments') }}">Detective assignments</a>
+          {% endif %}
+          {% if user_role in ['Admin Clerk', 'System Administrator'] %}
+          <a class="nav-item {% if current_page == 'employees' %}active{% endif %}" href="{{ url_for('employees') }}">Employee registry</a>
+          {% endif %}
+          {% endif %}
+          <a class="nav-item {% if current_page == 'notifications' %}active{% endif %}" href="{{ url_for('notifications') }}">Notifications</a>
         </nav>
 
         <div class="nav-group">
