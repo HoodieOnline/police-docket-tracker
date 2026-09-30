@@ -132,9 +132,9 @@ class CaseLifecycleTests(unittest.TestCase):
         self.assertEqual(response.status_code, 403)
         self.assertEqual(self.case_status(), "Registered")
 
-    def test_captain_assigns_registered_case_to_detective(self):
+    def test_station_commander_assigns_registered_case_to_detective(self):
         self.set_case_status("Registered")
-        self.login_as("Captain", "captain")
+        self.login_as("Station Commander", "commander")
         conn = docket_app.get_db()
         detective_id = conn.execute(
             "SELECT id FROM employees WHERE employee_number = 'EMP-000002'"
@@ -148,6 +148,123 @@ class CaseLifecycleTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 302)
         self.assertEqual(self.case_status(), "Assigned")
+
+    def test_captain_cannot_assign_or_close_cases(self):
+        self.set_case_status("Registered")
+        self.login_as("Captain", "captain")
+        conn = docket_app.get_db()
+        detective_id = conn.execute(
+            "SELECT id FROM employees WHERE employee_number = 'EMP-000002'"
+        ).fetchone()["id"]
+        conn.close()
+
+        assignment = self.client.post(
+            f"/cases/{self.case_id}/assign",
+            data={"detective_id": str(detective_id)},
+        )
+        closure = self.client.post(
+            f"/cases/{self.case_id}/close",
+            data={
+                "outcome": "Investigation completed",
+                "closing_reason": "Not authorized",
+                "report_reviewed": "yes",
+            },
+        )
+
+        self.assertEqual(assignment.status_code, 403)
+        self.assertEqual(closure.status_code, 403)
+        self.assertEqual(self.case_status(), "Registered")
+
+    def test_commander_cannot_close_before_detective_submits_report(self):
+        self.login_as("Station Commander", "commander")
+
+        response = self.client.post(
+            f"/cases/{self.case_id}/close",
+            data={
+                "outcome": "Investigation completed",
+                "closing_reason": "Premature closure",
+                "report_reviewed": "yes",
+            },
+        )
+
+        self.assertEqual(response.status_code, 409)
+        self.assertEqual(self.case_status(), "Assigned")
+
+    def test_commander_must_confirm_report_review_before_closure(self):
+        self.set_case_status("Awaiting Supervisor Review")
+        self.login_as("Station Commander", "commander")
+
+        response = self.client.post(
+            f"/cases/{self.case_id}/close",
+            data={
+                "outcome": "Investigation completed",
+                "closing_reason": "Report reviewed",
+            },
+        )
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(self.case_status(), "Awaiting Supervisor Review")
+
+    def test_clerk_files_physical_docket_without_assigning_detective(self):
+        self.set_case_status("Submitted")
+        conn = docket_app.get_db()
+        conn.execute("DELETE FROM dockets WHERE case_id = ?", (self.case_id,))
+        conn.execute(
+            "UPDATE cases SET assigned_employee_id = NULL WHERE case_id = ?",
+            (self.case_id,),
+        )
+        conn.commit()
+        conn.close()
+        self.login_as("Admin Clerk", "clerk")
+
+        missing_serial = self.client.post(
+            f"/cases/{self.case_id}/verify",
+            data={
+                "docket_format": "Physical",
+                "storage_location": "Shelf B-12, Bay 4",
+                "evidence_list": "Signed statement and photographs",
+            },
+        )
+        self.assertEqual(missing_serial.status_code, 400)
+        self.assertEqual(self.case_status(), "Submitted")
+
+        filed = self.client.post(
+            f"/cases/{self.case_id}/verify",
+            data={
+                "docket_format": "Physical",
+                "storage_location": "Shelf B-12, Bay 4",
+                "physical_serial": "SAC-TEST-0001",
+                "evidence_list": "Signed statement and photographs",
+            },
+        )
+        self.assertEqual(filed.status_code, 302)
+        self.assertEqual(self.case_status(), "Registered")
+        conn = docket_app.get_db()
+        docket = conn.execute(
+            "SELECT physical_serial, storage_location, evidence_list "
+            "FROM dockets WHERE case_id = ?",
+            (self.case_id,),
+        ).fetchone()
+        case = conn.execute(
+            "SELECT assigned_employee_id FROM cases WHERE case_id = ?",
+            (self.case_id,),
+        ).fetchone()
+        conn.close()
+        self.assertEqual(docket["physical_serial"], "SAC-TEST-0001")
+        self.assertEqual(docket["storage_location"], "Shelf B-12, Bay 4")
+        self.assertEqual(docket["evidence_list"], "Signed statement and photographs")
+        self.assertIsNone(case["assigned_employee_id"])
+
+        conn = docket_app.get_db()
+        detective_id = conn.execute(
+            "SELECT id FROM employees WHERE employee_number = 'EMP-000002'"
+        ).fetchone()["id"]
+        conn.close()
+        denied_assignment = self.client.post(
+            f"/cases/{self.case_id}/assign",
+            data={"detective_id": str(detective_id)},
+        )
+        self.assertEqual(denied_assignment.status_code, 403)
 
     def test_clerk_cannot_change_case_status(self):
         self.set_case_status("Registered")
@@ -227,7 +344,7 @@ class CaseLifecycleTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'id="newCaseBtn"', response.data)
 
-    def test_complainant_clerk_captain_detective_full_workflow(self):
+    def test_complainant_clerk_commander_detective_full_workflow(self):
         response = self.client.post(
             "/register",
             data={
@@ -273,6 +390,8 @@ class CaseLifecycleTests(unittest.TestCase):
             data={
                 "docket_format": "Physical",
                 "storage_location": "Johannesburg Central evidence room",
+                "physical_serial": "SAC-2026-001847",
+                "evidence_list": "Photographs, signed statement, USB exhibit",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -286,9 +405,11 @@ class CaseLifecycleTests(unittest.TestCase):
         self.assertEqual(case["status"], "Registered")
         self.assertEqual(docket["docket_number"], f"DKT-{case_id}")
         self.assertEqual(docket["physical_available"], 1)
+        self.assertEqual(docket["physical_serial"], "SAC-2026-001847")
+        self.assertEqual(docket["evidence_list"], "Photographs, signed statement, USB exhibit")
         conn.close()
 
-        self.login_as("Captain", "captain")
+        self.login_as("Station Commander", "commander")
         conn = docket_app.get_db()
         detective_id = conn.execute(
             "SELECT id FROM employees WHERE employee_number = 'EMP-000002'"
@@ -320,15 +441,36 @@ class CaseLifecycleTests(unittest.TestCase):
         self.assertEqual(movement["movement_type"], "Physical")
         conn.close()
 
-        self.login_as("Captain", "captain")
+        response = self.client.post(
+            f"/cases/{case_id}/status",
+            data={"status": "Under Investigation", "reason": "Investigation started"},
+        )
+        self.assertEqual(response.status_code, 302)
+        response = self.client.post(
+            f"/cases/{case_id}/status",
+            data={
+                "status": "Awaiting Supervisor Review",
+                "reason": "Investigation report submitted for Commander review",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        conn = docket_app.get_db()
+        case_status = conn.execute(
+            "SELECT status FROM cases WHERE case_id = ?", (case_id,)
+        ).fetchone()["status"]
+        conn.close()
+        self.assertEqual(case_status, "Awaiting Supervisor Review")
+
+        self.login_as("Station Commander", "commander")
         response = self.client.post(
             f"/cases/{case_id}/close",
             data={
                 "outcome": "Investigation completed",
                 "closing_reason": "Test workflow closure",
+                "report_reviewed": "yes",
             },
         )
-        self.assertEqual(response.status_code, 302)
+        self.assertEqual(response.status_code, 302, response.get_data(as_text=True))
         conn = docket_app.get_db()
         case = conn.execute(
             "SELECT status, closed_at, closing_reason FROM cases WHERE case_id = ?",
@@ -337,10 +479,30 @@ class CaseLifecycleTests(unittest.TestCase):
         self.assertEqual(case["status"], "Closed")
         self.assertIsNotNone(case["closed_at"])
         self.assertIn("Test workflow closure", case["closing_reason"])
+        complainant_notice = conn.execute(
+            """
+            SELECT message FROM notifications
+            WHERE case_id = ? AND user_id = (
+                SELECT id FROM users WHERE username = 'complainant_flow'
+            ) AND channel = 'In-app' AND message LIKE '%has been closed%'
+            LIMIT 1
+            """,
+            (case_id,),
+        ).fetchone()
         conn.close()
+        self.assertIsNotNone(complainant_notice)
 
-        self.login_as("Complainant", "complainant_flow")
-        response = self.client.get("/my-cases")
+        self.client.get("/logout")
+        login = self.client.post(
+            "/login",
+            data={
+                "username": "complainant_flow",
+                "password": "secure-test-password",
+            },
+        )
+        self.assertEqual(login.status_code, 302)
+        self.assertTrue(login.headers["Location"].endswith("/my-cases"))
+        response = self.client.get(login.headers["Location"])
         self.assertEqual(response.status_code, 200)
         self.assertIn(case_id.encode(), response.data)
         self.assertEqual(
@@ -377,6 +539,7 @@ class CaseLifecycleTests(unittest.TestCase):
                 "last_name": "Test",
                 "email": "amina@example.test",
                 "phone_number": "+27111111111",
+                "specialties": "Commercial crime",
             },
         )
 
@@ -384,7 +547,7 @@ class CaseLifecycleTests(unittest.TestCase):
         conn = docket_app.get_db()
         employee = conn.execute(
             """
-            SELECT e.employee_number, e.role_id, u.password_hash
+            SELECT e.employee_number, e.role_id, e.specialties, u.password_hash
             FROM employees e JOIN users u ON u.id = e.user_id
             WHERE u.username = 'new_detective'
             """
@@ -392,16 +555,74 @@ class CaseLifecycleTests(unittest.TestCase):
         conn.close()
         self.assertRegex(employee["employee_number"], r"^EMP-\d{6}$")
         self.assertIsNotNone(employee["role_id"])
+        self.assertEqual(employee["specialties"], "Commercial crime")
         self.assertTrue(employee["password_hash"].startswith("pbkdf2_sha256$"))
 
     def test_role_screens_and_closed_date_report_render(self):
         self.login_as("Admin Clerk", "clerk")
         self.assertEqual(self.client.get("/employees").status_code, 200)
         self.assertEqual(self.client.get("/cases").status_code, 200)
-        self.login_as("Captain", "captain")
+        self.login_as("Station Commander", "commander")
         self.assertEqual(self.client.get("/assignments").status_code, 200)
         self.assertEqual(self.client.get("/reports?start_date=2026-01-01&end_date=2026-12-31").status_code, 200)
         self.assertEqual(self.client.get("/dockets").status_code, 200)
+
+    def test_demo_credentials_reach_distinct_role_dashboards(self):
+        accounts = (
+            ("admin", "admin123", "/dashboard", b"System control centre", b"System-wide exceptions"),
+            ("detective", "detective123", "/dashboard", b"Investigation workspace", b"My investigation queue"),
+            ("clerk", "clerk123", "/clerk", b"Clerk dashboard", b"Complaint verification queue"),
+            ("captain", "captain123", "/dashboard", b"Station oversight dashboard", b"Station escalation queue"),
+            ("commander", "commander123", "/dashboard", b"Commander dashboard", b"pending dockets and investigation reports"),
+            ("demo_complainant", "complainant123", "/my-cases", b"Your reports", b"Case status"),
+        )
+        for username, password, expected_path, dashboard_marker, queue_marker in accounts:
+            with self.subTest(username=username):
+                with self.client.session_transaction() as session:
+                    session.clear()
+                login = self.client.post(
+                    "/login",
+                    data={"username": username, "password": password},
+                )
+
+                self.assertEqual(login.status_code, 302)
+                self.assertTrue(login.headers["Location"].endswith(expected_path))
+                dashboard = self.client.get(login.headers["Location"])
+                self.assertEqual(dashboard.status_code, 200)
+                self.assertIn(dashboard_marker, dashboard.data)
+                self.assertIn(queue_marker, dashboard.data)
+
+                if username == "captain":
+                    self.assertNotIn(b"Commander dashboard", dashboard.data)
+                    self.assertEqual(self.client.get("/assignments").status_code, 403)
+                elif username == "commander":
+                    self.assertIn(
+                        b"pending dockets and investigation reports",
+                        dashboard.data,
+                    )
+
+    def test_commander_dashboard_shows_pending_docket_controls(self):
+        self.set_case_status("Registered")
+        self.login_as("Station Commander", "commander")
+
+        response = self.client.get("/dashboard")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Commander dashboard", response.data)
+        self.assertIn(b"Assign detective", response.data)
+        self.assertIn(b"active", response.data)
+        self.assertNotIn(b"Captain: detective assignment", response.data)
+
+    def test_commander_dashboard_shows_closure_review_after_report_submission(self):
+        self.set_case_status("Awaiting Supervisor Review")
+        self.login_as("Station Commander", "commander")
+
+        response = self.client.get("/dashboard")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertIn(b"Report submitted for approval", response.data)
+        self.assertIn(b"Approve closure and notify complainant", response.data)
+        self.assertIn(b"name=\"report_reviewed\"", response.data)
 
 
 if __name__ == "__main__":

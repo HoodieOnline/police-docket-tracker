@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
   </head>
   <body class="login-page">
-    <main class="login-card">
+    <main class="login-card register-card">
       <div class="login-header">
         <div>
           <h2>Complainant account</h2>
@@ -15,7 +15,7 @@
         </div>
       </div>
       {% if error %}<div class="alert alert-danger">{{ error }}</div>{% endif %}
-      <form method="post" class="login-form">
+      <form method="post" class="login-form register-form">
         <div class="field-row">
           <label>First name<input class="input" name="first_name" required autocomplete="given-name"></label>
           <label>Surname<input class="input" name="last_name" required autocomplete="family-name"></label>

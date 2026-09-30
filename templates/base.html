@@ -31,7 +31,7 @@
           <a class="nav-item {% if current_page == 'dockets' %}active{% endif %}" href="{{ url_for('dockets') }}">Docket Flow</a>
           <a class="nav-item {% if current_page == 'reports' %}active{% endif %}" href="{{ url_for('reports') }}">Reports</a>
           <a class="nav-item {% if current_page == 'legal' %}active{% endif %}" href="{{ url_for('legal_references') }}">Legal &amp; Directives</a>
-          {% if user_role in ['Captain', 'Station Commander', 'System Administrator'] %}
+          {% if user_role in ['Station Commander', 'System Administrator'] %}
           <a class="nav-item {% if current_page == 'assignments' %}active{% endif %}" href="{{ url_for('assignments') }}">Detective assignments</a>
           {% endif %}
           {% if user_role in ['Admin Clerk', 'System Administrator'] %}

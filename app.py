@@ -112,8 +112,8 @@ COMPLIANCE_CHECKS = [
 
 ROLE_PERMISSIONS = {
     "System Administrator": {"view_all", "manage_users", "register", "verify", "assign", "approve", "transfer", "escalate", "close"},
-    "Station Commander": {"view_all", "approve", "transfer", "escalate", "close"},
-    "Captain": {"view_station", "assign", "close", "transfer", "escalate"},
+    "Station Commander": {"view_all", "assign", "approve", "transfer", "escalate", "close"},
+    "Captain": {"view_station", "transfer", "escalate"},
     "Supervisor": {"view_station", "approve", "transfer", "escalate"},
     "Detective": {"view_assigned", "update_case", "transfer", "receive_docket"},
     "Admin Clerk": {"register", "verify", "view_station", "transfer"},
@@ -445,7 +445,10 @@ def init_db():
     ensure_columns(
         conn,
         "employees",
-        {"role_id": "INTEGER"},
+        {
+            "role_id": "INTEGER",
+            "specialties": "TEXT NOT NULL DEFAULT ''",
+        },
     )
     ensure_columns(
         conn,
@@ -483,6 +486,14 @@ def init_db():
             "docket_format": "TEXT NOT NULL DEFAULT 'Electronic'",
             "current_location": "TEXT NOT NULL DEFAULT ''",
             "assigned_employee_id": "INTEGER",
+        },
+    )
+    ensure_columns(
+        conn,
+        "dockets",
+        {
+            "physical_serial": "TEXT NOT NULL DEFAULT ''",
+            "evidence_list": "TEXT NOT NULL DEFAULT ''",
         },
     )
     ensure_columns(
@@ -583,8 +594,8 @@ def init_seed_data(conn):
         "Complainant": "Submits reports and follows their own case status.",
         "Admin Clerk": "Verifies reports, opens dockets and registers employees.",
         "Detective": "Receives assigned dockets and investigates cases.",
-        "Captain": "Assigns detectives, tracks investigations and closes cases.",
-        "Station Commander": "Monitors station cases and command activity.",
+        "Captain": "Monitors station activity and escalations.",
+        "Station Commander": "Reviews pending dockets, assigns detectives and approves investigation closure.",
         "System Administrator": "Maintains system access and configuration.",
     }
     conn.executemany(
@@ -629,6 +640,33 @@ def init_seed_data(conn):
             (username, hash_password(password), role, station, now_iso()),
         )
 
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO users
+            (username, password_hash, role, station, email, phone_number,
+             user_type, account_status, created_at)
+        VALUES (?, ?, 'Complainant', '', ?, ?, 'Complainant', 'Active', ?)
+        """,
+        (
+            "demo_complainant",
+            hash_password("complainant123"),
+            "demo.complainant@example.test",
+            "+27000000000",
+            now_iso(),
+        ),
+    )
+    demo_complainant = conn.execute(
+        "SELECT id FROM users WHERE username = 'demo_complainant'"
+    ).fetchone()
+    conn.execute(
+        """
+        INSERT OR IGNORE INTO complainants
+            (user_id, first_name, last_name, phone_number, date_registered)
+        VALUES (?, 'Demo', 'Complainant', '+27000000000', ?)
+        """,
+        (demo_complainant["id"], now_iso()),
+    )
+
     station_id = conn.execute(
         "SELECT id FROM stations WHERE name = ?", ("Johannesburg Central",)
     ).fetchone()["id"]
@@ -669,6 +707,10 @@ def init_seed_data(conn):
     detective = conn.execute(
         "SELECT id FROM employees WHERE employee_number = 'EMP-000002'"
     ).fetchone()
+    conn.execute(
+        "UPDATE employees SET specialties = 'General investigations' "
+        "WHERE employee_number = 'EMP-000002' AND specialties = ''"
+    )
     conn.execute(
         """
         UPDATE cases SET assigned_employee_id = ?
@@ -1019,8 +1061,6 @@ def login():
                 return redirect(url_for("my_cases"))
             if user["role"] == "Admin Clerk":
                 return redirect(url_for("clerk_dashboard"))
-            if user["role"] == "Captain":
-                return redirect(url_for("assignments"))
             return redirect(url_for("dashboard"))
         conn.close()
 
@@ -1034,8 +1074,6 @@ def login():
             return redirect(url_for("my_cases"))
         if session.get("role") == "Admin Clerk":
             return redirect(url_for("clerk_dashboard"))
-        if session.get("role") == "Captain":
-            return redirect(url_for("assignments"))
         return redirect(url_for("dashboard"))
     return render_template("login.html", error=None)
 
@@ -1323,6 +1361,7 @@ def employees():
         last_name = request.form.get("last_name", "").strip()
         email = request.form.get("email", "").strip().lower()
         phone_number = request.form.get("phone_number", "").strip()
+        specialties = request.form.get("specialties", "").strip()
         if (
             not username
             or len(password) < 10
@@ -1391,8 +1430,8 @@ def employees():
             """
             INSERT INTO employees
                 (user_id, employee_number, first_name, last_name, station_id, role_id,
-                 phone_number, email, date_registered)
-            VALUES (?, ?, ?, ?, ?, (SELECT id FROM roles WHERE name = ?), ?, ?, ?)
+                 phone_number, email, date_registered, specialties)
+            VALUES (?, ?, ?, ?, ?, (SELECT id FROM roles WHERE name = ?), ?, ?, ?, ?)
             """,
             (
                 user_cursor.lastrowid,
@@ -1404,6 +1443,7 @@ def employees():
                 phone_number,
                 email,
                 now_iso(),
+                specialties if role == "Detective" else "",
             ),
         )
         if role == "Station Commander":
@@ -1423,6 +1463,7 @@ def employees():
 
     employee_query = """
         SELECT e.employee_number, e.first_name, e.last_name, e.email, e.phone_number,
+               e.specialties,
                e.employment_status, s.name AS station, s.address AS station_address,
                s.contact_number AS station_contact, u.username, u.role
         FROM employees e
@@ -1452,29 +1493,42 @@ def employees():
 
 @app.route("/assignments")
 @require_login
-@role_required("Captain", "Station Commander", "System Administrator")
+@role_required("Station Commander", "System Administrator")
 def assignments():
     conn = get_db()
-    cases = conn.execute(
-        """
+    case_query = """
         SELECT c.*, d.id AS docket_id, d.docket_number
         FROM cases c LEFT JOIN dockets d ON d.case_id = c.case_id
-        WHERE c.station = ? AND c.status NOT IN ('Closed', 'Finalized')
-        ORDER BY c.created_at DESC, c.id DESC
-        """,
-        (session.get("station", ""),),
-    ).fetchall()
-    detectives = conn.execute(
-        """
-        SELECT e.id, e.employee_number, e.first_name, e.last_name, s.name AS station
+        WHERE c.status NOT IN ('Closed', 'Finalized')
+    """
+    if session.get("role") == "System Administrator":
+        cases = conn.execute(
+            case_query + " ORDER BY c.created_at DESC, c.id DESC"
+        ).fetchall()
+    else:
+        cases = conn.execute(
+            case_query + " AND c.station = ? ORDER BY c.created_at DESC, c.id DESC",
+            (session.get("station", ""),),
+        ).fetchall()
+    detective_query = """
+        SELECT e.id, e.employee_number, e.first_name, e.last_name, e.specialties,
+               s.name AS station,
+               (SELECT COUNT(*) FROM cases c
+                WHERE c.assigned_employee_id = e.id
+                  AND c.status NOT IN ('Closed', 'Finalized')) AS active_cases
         FROM employees e JOIN users u ON u.id = e.user_id
         LEFT JOIN stations s ON s.id = e.station_id
         WHERE u.role = 'Detective' AND u.account_status = 'Active'
-              AND s.name = ?
-        ORDER BY e.last_name, e.first_name
-        """,
-        (session.get("station", ""),),
-    ).fetchall()
+    """
+    if session.get("role") == "System Administrator":
+        detectives = conn.execute(
+            detective_query + " ORDER BY s.name, e.last_name, e.first_name"
+        ).fetchall()
+    else:
+        detectives = conn.execute(
+            detective_query + " AND s.name = ? ORDER BY e.last_name, e.first_name",
+            (session.get("station", ""),),
+        ).fetchall()
     conn.close()
     return render_template(
         "assignments.html",
@@ -1485,7 +1539,7 @@ def assignments():
         integrity_score=100,
         cases=cases,
         detectives=detectives,
-        can_assign=session.get("role") in {"Captain", "System Administrator"},
+        can_assign=session.get("role") in {"Station Commander", "System Administrator"},
     )
 
 
@@ -1519,8 +1573,14 @@ def verify_case(case_id):
         return request_error("Choose Electronic or Physical docket format.", 400)
     now = now_iso()
     storage_location = request.form.get("storage_location", "").strip()
-    if not storage_location:
-        storage_location = f"{case['station']} case intake"
+    physical_serial = request.form.get("physical_serial", "").strip()
+    evidence_list = request.form.get("evidence_list", "").strip()
+    if not storage_location or not evidence_list:
+        conn.close()
+        return request_error("Provide a shelf location and record the evidence list, or enter 'None'.", 400)
+    if docket_format == "Physical" and not physical_serial:
+        conn.close()
+        return request_error("A physical docket requires its physical serial number.", 400)
     clerk = conn.execute(
         "SELECT id FROM users WHERE id = ?", (session["user_id"],)
     ).fetchone()
@@ -1529,8 +1589,8 @@ def verify_case(case_id):
         """
         INSERT INTO dockets
             (docket_number, case_id, created_by, created_at, physical_available,
-             current_holder_employee_id, storage_location)
-        VALUES (?, ?, ?, ?, ?, NULL, ?)
+             current_holder_employee_id, storage_location, physical_serial, evidence_list)
+        VALUES (?, ?, ?, ?, ?, NULL, ?, ?, ?)
         """,
         (
             docket_number,
@@ -1539,6 +1599,8 @@ def verify_case(case_id):
             now,
             1 if docket_format == "Physical" else 0,
             storage_location,
+            physical_serial,
+            evidence_list,
         ),
     )
     docket_id = conn.execute(
@@ -1570,7 +1632,7 @@ def verify_case(case_id):
     conn.execute(
         "UPDATE case_controls SET next_action = ?, due_at = ? WHERE case_id = ?",
         (
-            "Captain to assign an investigating detective",
+            "Station Commander to assign an investigating detective",
             datetime.fromtimestamp(add_days(1), timezone.utc).isoformat(timespec="seconds"),
             case_id,
         ),
@@ -1610,7 +1672,7 @@ def verify_case(case_id):
     command_users = conn.execute(
         """
         SELECT id FROM users
-        WHERE station = ? AND role IN ('Captain', 'Station Commander')
+        WHERE station = ? AND role = 'Station Commander'
               AND account_status = 'Active'
         """,
         (case["station"],),
@@ -1629,7 +1691,7 @@ def verify_case(case_id):
 
 @app.route("/cases/<case_id>/assign", methods=["POST"])
 @require_login
-@role_required("Captain", "System Administrator")
+@role_required("Station Commander", "System Administrator")
 def assign_detective(case_id):
     conn = get_db()
     case = conn.execute(
@@ -1638,9 +1700,12 @@ def assign_detective(case_id):
     if not case:
         conn.close()
         return "Case not found", 404
-    if case["station"] != session.get("station"):
+    if (
+        session.get("role") != "System Administrator"
+        and case["station"] != session.get("station")
+    ):
         conn.close()
-        return render_template("forbidden.html", required_roles="Captain for this station"), 403
+        return render_template("forbidden.html", required_roles="Station Commander for this station"), 403
     if case["status"] not in {"Registered", "Assigned"}:
         conn.close()
         return request_error("Only registered or assigned cases can be assigned.", 409)
@@ -1720,7 +1785,7 @@ def assign_detective(case_id):
             session["user_id"],
             now,
             case["docket_format"],
-            "Captain assigned docket for investigation",
+            "Station Commander assigned docket for investigation",
         ),
     )
     movement_id = conn.execute("SELECT last_insert_rowid()").fetchone()[0]
@@ -1736,7 +1801,7 @@ def assign_detective(case_id):
             from_location,
             to_location,
             session["user"],
-            "Captain assigned docket for investigation",
+            "Station Commander assigned docket for investigation",
             now,
             movement_id,
             case["docket_format"],
@@ -1762,7 +1827,7 @@ def assign_detective(case_id):
             case["status"],
             session["user_id"],
             now,
-            "Detective assignment by Captain",
+            "Detective assignment by Station Commander",
         ),
     )
     conn.execute(
@@ -1809,7 +1874,7 @@ def assign_detective(case_id):
     )
     conn.commit()
     conn.close()
-    return redirect(url_for("assignments"))
+    return redirect(url_for("dashboard"))
 
 
 @app.route("/cases/<case_id>/receive", methods=["POST"])
@@ -1955,12 +2020,14 @@ def notifications():
 
 @app.route("/cases/<case_id>/close", methods=["POST"])
 @require_login
-@role_required("Captain", "System Administrator")
+@role_required("Station Commander", "System Administrator")
 def close_case(case_id):
     reason = request.form.get("closing_reason", "").strip()
     outcome = request.form.get("outcome", "").strip()
     if outcome not in {"Investigation completed", "Dead end"} or not reason:
         return request_error("Choose a closure outcome and provide the closing reason.", 400)
+    if request.form.get("report_reviewed") != "yes":
+        return request_error("Confirm that the investigation report and evidence have been reviewed.", 400)
     conn = get_db()
     case = conn.execute(
         "SELECT * FROM cases WHERE case_id = ?", (case_id,)
@@ -1968,12 +2035,15 @@ def close_case(case_id):
     if not case:
         conn.close()
         return "Case not found", 404
-    if case["station"] != session.get("station"):
+    if (
+        session.get("role") != "System Administrator"
+        and case["station"] != session.get("station")
+    ):
         conn.close()
-        return render_template("forbidden.html", required_roles="Captain for this station"), 403
-    if case["status"] in {"Closed", "Finalized"}:
+        return render_template("forbidden.html", required_roles="Station Commander for this station"), 403
+    if case["status"] != "Awaiting Supervisor Review":
         conn.close()
-        return request_error("This case has already been closed.", 409)
+        return request_error("A detective must submit the investigation report before closure approval.", 409)
     now = now_iso()
     conn.execute(
         """
@@ -2000,9 +2070,20 @@ def close_case(case_id):
             (case_id, previous_status, new_status, changed_by_user_id, changed_at, reason)
         VALUES (?, ?, 'Closed', ?, ?, ?)
         """,
-        (case_id, case["status"], session["user_id"], now, f"{outcome}: {reason}"),
+        (
+            case_id,
+            case["status"],
+            session["user_id"],
+            now,
+            f"Investigation report and evidence reviewed. {outcome}: {reason}",
+        ),
     )
-    add_audit_event(conn, case_id, "Case closed", f"{outcome}: {reason}")
+    add_audit_event(
+        conn,
+        case_id,
+        "Commander approved case closure",
+        f"Investigation report and evidence reviewed. {outcome}: {reason}",
+    )
     message = f"Case {case_id} has been closed: {outcome}. Please contact your station for details."
     if case["complainant_user_id"]:
         queue_notification(conn, case["complainant_user_id"], case_id, message)
@@ -2033,8 +2114,6 @@ def dashboard():
         return redirect(url_for("clerk_dashboard"))
     if session.get("role") == "Complainant":
         return redirect(url_for("my_cases"))
-    if session.get("role") == "Captain":
-        return redirect(url_for("assignments"))
     conn = get_db()
     commit_guardrails(conn)
     cases = conn.execute("SELECT * FROM cases ORDER BY updated_at DESC").fetchall()
@@ -2053,6 +2132,52 @@ def dashboard():
         ).fetchall()
     else:
         recent_activity = []
+    role = session.get("role", "Station Commander")
+    command_cases = []
+    detectives = []
+    if role in {"Station Commander", "System Administrator"}:
+        command_query = """
+            SELECT c.*, d.id AS docket_id, d.docket_number, d.physical_serial,
+                   d.storage_location, d.evidence_list
+            FROM cases c LEFT JOIN dockets d ON d.case_id = c.case_id
+            WHERE c.status IN ('Registered', 'Awaiting Supervisor Review')
+        """
+        if role == "System Administrator":
+            command_cases = conn.execute(
+                command_query + " ORDER BY c.created_at ASC, c.id ASC"
+            ).fetchall()
+            detective_query = """
+                SELECT e.id, e.employee_number, e.first_name, e.last_name,
+                       e.specialties, s.name AS station,
+                       (SELECT COUNT(*) FROM cases c
+                        WHERE c.assigned_employee_id = e.id
+                          AND c.status NOT IN ('Closed', 'Finalized')) AS active_cases
+                FROM employees e JOIN users u ON u.id = e.user_id
+                LEFT JOIN stations s ON s.id = e.station_id
+                WHERE u.role = 'Detective' AND u.account_status = 'Active'
+                ORDER BY s.name, e.last_name, e.first_name
+            """
+            detectives = conn.execute(detective_query).fetchall()
+        else:
+            command_cases = conn.execute(
+                command_query + " AND c.station = ? ORDER BY c.created_at ASC, c.id ASC",
+                (session.get("station", ""),),
+            ).fetchall()
+            detective_query = """
+                SELECT e.id, e.employee_number, e.first_name, e.last_name,
+                       e.specialties, s.name AS station,
+                       (SELECT COUNT(*) FROM cases c
+                        WHERE c.assigned_employee_id = e.id
+                          AND c.status NOT IN ('Closed', 'Finalized')) AS active_cases
+                FROM employees e JOIN users u ON u.id = e.user_id
+                LEFT JOIN stations s ON s.id = e.station_id
+                WHERE u.role = 'Detective' AND u.account_status = 'Active'
+                      AND s.name = ?
+                ORDER BY e.last_name, e.first_name
+            """
+            detectives = conn.execute(
+                detective_query, (session.get("station", ""),)
+            ).fetchall()
     conn.close()
     chart_statuses = [
         ("Submitted", "var(--primary)"),
@@ -2099,7 +2224,7 @@ def dashboard():
         "open_trend": {
             "System Administrator": "System-wide view",
             "Station Commander": "Station-wide view",
-            "Captain": "Station assignment queue",
+            "Captain": "Station oversight",
             "Supervisor": "Review queue monitored",
             "Detective": "Assigned caseload",
             "Admin Clerk": "Intake queue",
@@ -2108,7 +2233,7 @@ def dashboard():
         "action_trend": {
             "System Administrator": "Access and workflow health",
             "Station Commander": "Assignments and escalations",
-            "Captain": "Detective assignment and closure",
+            "Captain": "Station workflow overview",
             "Supervisor": "Reviews and exceptions",
             "Detective": "Investigation tasks",
             "Admin Clerk": "Registration and receipts",
@@ -2120,8 +2245,8 @@ def dashboard():
 
     queue_rules = {
         "System Administrator": ["Escalated"],
-        "Station Commander": ["Registered", "Escalated", "Awaiting Supervisor Review"],
-        "Captain": ["Registered", "Assigned", "Escalated"],
+        "Station Commander": ["Escalated"],
+        "Captain": ["Escalated"],
         "Supervisor": ["Escalated", "Awaiting Supervisor Review"],
         "Detective": ["Assigned", "Under Investigation", "Awaiting Evidence"],
         "Admin Clerk": ["Registered"],
@@ -2132,11 +2257,39 @@ def dashboard():
     ]
     role_copy = {
         "System Administrator": ("System control centre", "Monitor account access, workflow integrity, and audit health."),
-        "Station Commander": ("Station command dashboard", "Assign responsibility, clear escalations, and monitor station performance."),
-        "Captain": ("Captain's assignment desk", "Assign and reassign investigating detectives, track docket receipts, and close completed investigations."),
+        "Station Commander": ("Station command dashboard", "Review the pending docket queue, assign detectives, and approve completed investigation reports."),
+        "Captain": ("Station oversight dashboard", "Review station activity and escalations."),
         "Supervisor": ("Supervision and review queue", "Resolve overdue reviews, refusal reports, and custody exceptions."),
         "Detective": ("Investigation workspace", "Progress assigned dockets, request evidence, and keep the custody chain current."),
         "Admin Clerk": ("Case intake desk", "Register complaints, issue receipts, and route dockets to the correct owner."),
+    }
+    metric_labels = {
+        "System Administrator": ("All open cases", "System exceptions", "Avg. days open", "Closed records"),
+        "Station Commander": ("Open station cases", "Pending command actions", "Avg. days open", "Approved closures"),
+        "Captain": ("Station cases", "Escalations to monitor", "Avg. days open", "Closed cases"),
+        "Supervisor": ("Cases under oversight", "Reviews and exceptions", "Avg. days open", "Closed cases"),
+        "Detective": ("My open dockets", "Investigation tasks", "Avg. days assigned", "Closed dockets"),
+    }
+    queue_titles = {
+        "System Administrator": "System-wide exceptions",
+        "Station Commander": "Escalations requiring review",
+        "Captain": "Station escalation queue",
+        "Supervisor": "Reviews and exceptions queue",
+        "Detective": "My investigation queue",
+    }
+    queue_descriptions = {
+        "System Administrator": "Station cases and exceptions that need system-level monitoring.",
+        "Station Commander": "Overdue or escalated station cases requiring command attention.",
+        "Captain": "Station escalations available for oversight; detective assignment remains with the Station Commander.",
+        "Supervisor": "Cases awaiting review or escalated for supervisory attention.",
+        "Detective": "Your assigned dockets with investigation work still outstanding.",
+    }
+    activity_titles = {
+        "System Administrator": "Recent system activity",
+        "Station Commander": "Recent station command activity",
+        "Captain": "Recent station activity",
+        "Supervisor": "Recent review activity",
+        "Detective": "Recent activity on my dockets",
     }
 
     return render_template(
@@ -2150,9 +2303,21 @@ def dashboard():
         status_breakdown=status_breakdown,
         recent_activity=recent_activity,
         action_queue=action_queue,
+        command_cases=command_cases,
+        detectives=detectives,
         dashboard_title=role_copy.get(role, ("Operations dashboard", "Monitor current case activity."))[0],
         dashboard_description=role_copy.get(role, ("Operations dashboard", "Monitor current case activity."))[1],
         role=role,
+        metric_labels=metric_labels.get(
+            role,
+            ("Open cases", "Requiring action", "Avg. days open", "Closed cases"),
+        ),
+        queue_title=queue_titles.get(role, "Your action queue"),
+        queue_description=queue_descriptions.get(
+            role,
+            f"Cases and tasks that require attention for the {role} role.",
+        ),
+        activity_title=activity_titles.get(role, "Recent activity"),
     )
 
 
@@ -2402,7 +2567,11 @@ def case_detail(case_id):
     ).fetchall()
     detectives = conn.execute(
         """
-        SELECT e.id, e.employee_number, e.first_name, e.last_name
+        SELECT e.id, e.employee_number, e.first_name, e.last_name,
+               e.specialties, s.name AS station,
+               (SELECT COUNT(*) FROM cases active_case
+                WHERE active_case.assigned_employee_id = e.id
+                  AND active_case.status NOT IN ('Closed', 'Finalized')) AS active_cases
         FROM employees e JOIN users u ON u.id = e.user_id
         LEFT JOIN stations s ON s.id = e.station_id
         WHERE u.role = 'Detective' AND u.account_status = 'Active'
@@ -2453,12 +2622,12 @@ def case_detail(case_id):
         latest_assignment=latest_assignment,
         can_verify=has_permission("verify") and case["status"] == "Submitted",
         can_assign=(
-            session.get("role") in {"Captain", "System Administrator"}
-            and case["status"] not in {"Closed", "Finalized"}
+            session.get("role") in {"Station Commander", "System Administrator"}
+            and case["status"] in {"Registered", "Assigned"}
         ),
         can_close=(
-            session.get("role") in {"Captain", "System Administrator"}
-            and case["status"] not in {"Closed", "Finalized"}
+            session.get("role") in {"Station Commander", "System Administrator"}
+            and case["status"] == "Awaiting Supervisor Review"
         ),
         can_receive=(
             session.get("role") == "Detective"
@@ -2554,11 +2723,11 @@ def update_case_status(case_id):
     if new_status == "Assigned" and not has_permission("assign"):
         return render_template(
             "forbidden.html",
-            required_roles="Captain",
+            required_roles="Station Commander",
         ), 403
     if new_status == "Assigned":
         return request_error(
-            "Use the Captain's detective-assignment workflow to assign a docket.",
+            "Use the Station Commander's detective-assignment workflow to assign a docket.",
             409,
         )
     conn = get_db()

@@ -6,7 +6,7 @@
   <header class="hero">
     <div class="eyebrow">Case intake operations</div>
     <h2>Clerk dashboard</h2>
-    <p>Register complaints, issue receipts, and route each docket to the correct owner.</p>
+    <p>Receive complaints, verify reports, and file complete dockets for the Station Commander to assign.</p>
   </header>
 
   <section class="stats-grid">
@@ -40,7 +40,7 @@
 
   <section class="content-grid">
     <div class="panel">
-      <div class="section-header">Intake queue</div>
+      <div class="section-header">Complaint verification queue</div>
       <div class="action-grid">
         {% for case in intake_cases %}
         <a class="action-card" href="{{ url_for('case_detail', case_id=case.case_id) }}">
@@ -49,7 +49,7 @@
           <small>{{ case.station }} · {{ case.days_open }} days open</small>
         </a>
         {% else %}
-        <p class="muted">No cases are waiting for intake.</p>
+        <p class="muted">No submitted complaints are waiting for verification.</p>
         {% endfor %}
       </div>
     </div>
@@ -70,7 +70,7 @@
   </section>
 
   <section class="guardrail-note">
-    <strong>Intake controls active</strong>
-    <span>Every registration and transfer is recorded in the case audit trail for accountability.</span>
+    <strong>Clerk workflow controls active</strong>
+    <span>Clerks file complete dockets and forward them to the Station Commander; detective assignment is not a clerk action.</span>
   </section>
 {% endblock %}

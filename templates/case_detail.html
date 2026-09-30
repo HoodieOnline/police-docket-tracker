@@ -34,7 +34,8 @@
       <h3>Docket record</h3>
       {% if docket %}
       <p><strong>{{ docket.docket_number }}</strong> · {{ docket.status }}</p>
-      <p class="muted">Created {{ docket.created_at }} · Physical copy: {{ 'Available' if docket.physical_available else 'No' }} · Storage: {{ docket.storage_location }}</p>
+      <p class="muted">Created {{ docket.created_at }} · Physical copy: {{ 'Available' if docket.physical_available else 'No' }} · Serial: {{ docket.physical_serial or 'Not applicable' }} · Shelf: {{ docket.storage_location }}</p>
+      <p class="muted">Evidence list: {{ docket.evidence_list or 'Not recorded' }}</p>
       {% else %}
       <p class="muted">The clerk has not verified the report or opened its docket yet.</p>
       {% endif %}
@@ -46,7 +47,9 @@
           </select>
         </label>
         <label>Initial storage / intake location<input class="input" name="storage_location" value="{{ case.station }} case intake" required></label>
-        <button class="primary-btn" type="submit">Verify report and open docket</button>
+        <label>Physical docket serial (required for physical dockets)<input class="input" name="physical_serial" placeholder="Enter the printed docket serial"></label>
+        <label>Evidence list<textarea class="input" name="evidence_list" rows="3" required placeholder="List evidence or enter None"></textarea></label>
+        <button class="primary-btn" type="submit">File docket and forward to Commander</button>
       </form>
       {% endif %}
     </div>
@@ -56,14 +59,14 @@
   <section class="grid-two">
     {% if can_assign %}
     <div class="mini-panel">
-      <h3>Captain: detective assignment</h3>
-      <p class="muted">Assign or reassign a detective. The assignment and docket movement are recorded, and the detective is notified.</p>
+      <h3>Commander: assign detective</h3>
+      <p class="muted">Select an active investigator using specialty and current caseload. The assignment and docket movement are recorded, and the detective is notified.</p>
       <form method="post" action="{{ url_for('assign_detective', case_id=case.case_id) }}" class="stack-form">
         <label>Detective
           <select class="select" name="detective_id" required>
             <option value="">Choose an active detective</option>
             {% for detective in detectives %}
-            <option value="{{ detective.id }}">{{ detective.first_name }} {{ detective.last_name }} · {{ detective.employee_number }}</option>
+            <option value="{{ detective.id }}">{{ detective.first_name }} {{ detective.last_name }} · {{ detective.specialties or 'General' }} · {{ detective.active_cases }} active cases</option>
             {% endfor %}
           </select>
         </label>
@@ -73,18 +76,30 @@
     {% endif %}
     {% if can_close %}
     <div class="mini-panel">
-      <h3>Captain: close case</h3>
-      <p class="muted">The closed record and docket remain retained in the system. Select the outcome and document why the investigation is closing.</p>
+      <h3>Commander: approve closure</h3>
+      <p class="muted">Review the detective's submitted investigation report and evidence before approving closure. The closed record and docket remain retained.</p>
       <form method="post" action="{{ url_for('close_case', case_id=case.case_id) }}" class="stack-form">
         <label>Outcome<select class="select" name="outcome" required>
           <option value="">Select outcome</option>
           <option>Investigation completed</option><option>Dead end</option>
         </select></label>
+        <label class="review-confirmation"><input type="checkbox" name="report_reviewed" value="yes" required> I reviewed the submitted investigation report and evidence and approve closure.</label>
         <label>Closing reason<textarea class="input" name="closing_reason" rows="3" required></textarea></label>
-        <button class="primary-btn" type="submit">Close and retain docket</button>
+        <button class="primary-btn" type="submit">Approve closure and notify complainant</button>
       </form>
     </div>
     {% endif %}
+  </section>
+  {% elif user_role in ['Station Commander', 'System Administrator'] and case.status not in ['Closed', 'Finalized'] %}
+  <section class="guardrail-note">
+    <strong>Closure approval is waiting for the detective</strong>
+    <span>
+      {% if case.status == 'Registered' %}
+      Assign a detective from the command dashboard first. Closure approval becomes available after the detective submits an investigation report.
+      {% else %}
+      The Commander can approve closure after the detective submits the investigation report for review.
+      {% endif %}
+    </span>
   </section>
   {% endif %}
 
@@ -120,7 +135,7 @@
       <h3>Case lifecycle</h3>
       {% if can_update %}
       <form method="post" action="{{ url_for('update_case_status', case_id=case.case_id) }}">
-        <label>Status
+        <label>{{ 'Investigation progress / report' if user_role == 'Detective' else 'Status' }}
           <select class="select" name="status" required>
             <option value="" disabled selected>Choose the next valid status</option>
             {% for status in statuses %}
@@ -128,10 +143,10 @@
             {% endfor %}
           </select>
         </label>
-        <label>Required reason
-          <textarea class="input" name="reason" rows="3" required placeholder="Explain the decision or next action"></textarea>
+        <label>{{ 'Investigation findings and next action' if user_role == 'Detective' else 'Required reason' }}
+          <textarea class="input" name="reason" rows="4" required placeholder="{{ 'Record investigation findings, evidence collected, actions taken, and any outstanding work. Submit Awaiting Supervisor Review when the report is ready for the Commander.' if user_role == 'Detective' else 'Explain the decision or next action' }}"></textarea>
         </label>
-        <button class="primary-btn" type="submit">Record status change</button>
+        <button class="primary-btn" type="submit">{{ 'Submit investigation update for review' if user_role == 'Detective' else 'Record status change' }}</button>
       </form>
       {% elif can_manage_lifecycle %}
       <p class="muted">No further status changes are available for your role at this stage. Finalized cases are terminal.</p>

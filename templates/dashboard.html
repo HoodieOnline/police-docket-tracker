@@ -13,30 +13,106 @@
 
   <section class="stats-grid">
     <article class="stat-card">
-      <div class="label">Open cases</div>
+      <div class="label">{{ metric_labels[0] }}</div>
       <div class="value">{{ summary.open_cases }}</div>
       <div class="trend">{{ summary.open_trend }}</div>
     </article>
     <article class="stat-card">
-      <div class="label">Requiring action</div>
+      <div class="label">{{ metric_labels[1] }}</div>
       <div class="value">{{ summary.require_action }}</div>
       <div class="trend">{{ summary.action_trend }}</div>
     </article>
     <article class="stat-card">
-      <div class="label">Avg. days open</div>
+      <div class="label">{{ metric_labels[2] }}</div>
       <div class="value">{{ summary.avg_days }}</div>
       <div class="trend">{{ summary.days_trend }}</div>
     </article>
     <article class="stat-card">
-      <div class="label">Finalized</div>
+      <div class="label">{{ metric_labels[3] }}</div>
       <div class="value">{{ summary.finalized }}</div>
       <div class="trend">Completed</div>
     </article>
   </section>
 
+  {% if role in ['Station Commander', 'System Administrator'] %}
+  <section class="panel command-panel">
+    <div class="section-header">
+      {% if role == 'Station Commander' %}
+      Commander dashboard · pending dockets and investigation reports
+      {% else %}
+      System control centre · station queues and investigation reports
+      {% endif %}
+    </div>
+    <p class="muted">
+      {% if role == 'Station Commander' %}
+      Clerks file and forward dockets. Assign a detective here, then review the detective's submitted report before approving closure.
+      {% else %}
+      Monitor pending dockets across stations, review system-wide activity, and use administrative workflow controls where needed.
+      {% endif %}
+    </p>
+    <div class="command-queue">
+      {% for case in command_cases %}
+      <article class="command-card">
+        <div class="command-card-heading">
+          <div>
+            <a class="case-link" href="{{ url_for('case_detail', case_id=case.case_id) }}"><strong>{{ case.docket_number or 'Docket not filed' }} · {{ case.case_id }}</strong></a>
+            <div class="muted">{{ case.station }} · {{ case.complainant }} · {{ case.status }}</div>
+          </div>
+          <span class="status-pill">{{ 'Assignment needed' if case.status == 'Registered' else 'Report submitted for approval' }}</span>
+        </div>
+        {% if case.status == 'Registered' %}
+          {% if case.docket_id %}
+          <div class="docket-summary">
+            <span><strong>Physical serial:</strong> {{ case.physical_serial or 'Electronic docket' }}</span>
+            <span><strong>Shelf:</strong> {{ case.storage_location }}</span>
+            <span><strong>Evidence:</strong> {{ case.evidence_list or 'Not recorded' }}</span>
+          </div>
+          <form method="post" action="{{ url_for('assign_detective', case_id=case.case_id) }}" class="command-form">
+            <label>Assign detective
+              <select class="select" name="detective_id" required>
+                <option value="">Choose based on specialty and workload</option>
+                {% for detective in detectives %}
+                  {% if role == 'System Administrator' %}
+                  <option value="{{ detective.id }}">{{ detective.station }} · {{ detective.first_name }} {{ detective.last_name }} · {{ detective.specialties or 'General' }} · {{ detective.active_cases }} active</option>
+                  {% elif detective.station == case.station %}
+                  <option value="{{ detective.id }}">{{ detective.first_name }} {{ detective.last_name }} · {{ detective.specialties or 'General' }} · {{ detective.active_cases }} active</option>
+                  {% endif %}
+                {% endfor %}
+              </select>
+            </label>
+            <button class="primary-btn" type="submit">Assign detective</button>
+          </form>
+          {% else %}
+          <p class="muted">The clerk must file the docket before detective assignment.</p>
+          {% endif %}
+        {% else %}
+          <p class="muted">Detective: {{ case.assigned_to }} · Review the submitted report and evidence before closure.</p>
+          <form method="post" action="{{ url_for('close_case', case_id=case.case_id) }}" class="command-form">
+            <label>Outcome
+              <select class="select" name="outcome" required>
+                <option value="">Select outcome</option>
+                <option>Investigation completed</option>
+                <option>Dead end</option>
+              </select>
+            </label>
+            <label>Closing reason
+              <textarea class="input" name="closing_reason" rows="2" required></textarea>
+            </label>
+            <label class="review-confirmation"><input type="checkbox" name="report_reviewed" value="yes" required> I reviewed the investigation report and evidence and approve closure.</label>
+            <button class="primary-btn" type="submit">Approve closure and notify complainant</button>
+          </form>
+        {% endif %}
+      </article>
+      {% else %}
+      <p class="muted">No dockets are awaiting assignment or closure approval.</p>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <section class="content-grid">
     <div class="panel">
-      <div class="section-header">Case overview</div>
+      <div class="section-header">{{ 'My docket status' if role == 'Detective' else 'Case status overview' }}</div>
       <div class="bar-chart" aria-label="Case status chart">
         {% for item in status_breakdown %}
         <div class="bar-col">
@@ -48,7 +124,7 @@
     </div>
 
     <div class="panel">
-      <div class="section-header">Recent activity</div>
+      <div class="section-header">{{ activity_title }}</div>
       <div class="timeline">
         {% for event in recent_activity %}
         <div class="event">
@@ -60,8 +136,8 @@
   </section>
 
   <section class="panel action-panel">
-    <div class="section-header">Your action queue</div>
-    <p class="muted">Cases and tasks that require attention for the {{ role }} role.</p>
+    <div class="section-header">{{ queue_title }}</div>
+    <p class="muted">{{ queue_description }}</p>
     <div class="action-grid">
       {% for case in action_queue %}
       <a class="action-card" href="{{ url_for('case_detail', case_id=case.case_id) }}">
